@@ -1,6 +1,9 @@
 from src.models import ENTITY_PAYLOAD, ATTRIBUTE_PAYLOAD
 import requests
 from datetime import datetime
+import json
+import binascii
+from google.protobuf.wrappers_pb2 import StringValue
 
 class IncomingServiceAttributes:
     def __init__(self, config : dict):
@@ -85,9 +88,29 @@ class IncomingServiceAttributes:
                         response.raise_for_status()  
                         output = response.json()
                         item["name"] =  output["body"][0]["name"]
+                        print(item["name"])
+                        decoded_name = self.decode_protobuf_attribute_name(item["name"])
+                        print(f"Decoded name : {decoded_name}")
+                        url = f"{self.config['BASE_URL_QUERY']}/v1/entities/{entityId}/metadata"
+                        headers = {
+                            "Content-Type": "application/json",
+                            # "Authorization": f"Bearer {token}"  
+                        }
+                        try:
+                            response = requests.get(url, headers=headers)
+                            response.raise_for_status()  
+                            metadata = response.json()
+                            if decoded_name in metadata:
+                                item["human_readable_name"] = metadata[decoded_name].get("description", "No description available")
+                            else:
+                                item["human_readable_name"] = "No description available"
+                        except Exception as e:
+                            metadata = {}
+                            print(f"Error fetching metadata: {str(e)}")
+                            item["human_readable_name"] = "No description available"
+                            
                     except Exception as e:
                         item["name"] = f"error : {str(e)}"
-                
             else:
                 return {
                     "year": req_year,
@@ -108,6 +131,16 @@ class IncomingServiceAttributes:
             "year": req_year,
             "attributes": data_list_for_req_year
         }
+    
+    def decode_protobuf_attribute_name(self, name : str) -> str:
+        data = json.loads(name)
+        
+        hex_value = data.get("value")
+        
+        decoded_bytes = binascii.unhexlify(hex_value)
+        decoded_str = decoded_bytes.decode("utf-8", errors="ignore")
+        
+        return decoded_str
 
     
     def expose_data_for_the_attribute(self, ATTRIBUTE_PAYLOAD: ATTRIBUTE_PAYLOAD , entityId):

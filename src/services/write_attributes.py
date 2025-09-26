@@ -8,12 +8,14 @@ class WriteAttributes:
     def generate_id_for_category(self, date, parent_of_parent_category_id, name):
         date_for_id = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
         year = date_for_id.strftime("%Y")
-        month_day = date_for_id.strftime("%m-%d").replace("-", "_")
-        node_id = f"{parent_of_parent_category_id}_cat_{name}_{year}_{month_day}"
-        node_id = node_id.lower()
-        short_name = parent_of_parent_category_id+ "_" + hashlib.md5(node_id.encode()).hexdigest()[:10]
-        return short_name
-        # return node_id.lower()
+        month_day = date_for_id.strftime("%m_%d")
+
+        raw = f"{parent_of_parent_category_id}|{name}|{year}|{month_day}"
+
+        short_hash = hashlib.sha1(raw.encode()).hexdigest()[:10]
+
+        node_id = f"cat_{short_hash}"
+        return node_id
 
     def create_nodes(self, node_id, node_name, node_key, date):
         
@@ -125,37 +127,37 @@ class WriteAttributes:
                 "error": str(e)
             }
             
-    def create_metadata_to_attribute(self, attribute_id, attribute_metadata): 
-        url = f"http://0.0.0.0:8080/entities/{attribute_id}"
+    # def create_metadata_to_attribute(self, attribute_id, attribute_metadata): 
+    #     url = f"http://0.0.0.0:8080/entities/{attribute_id}"
         
-        payload = {
-            "id": attribute_id,
-            "metadata": attribute_metadata
-        }
+    #     payload = {
+    #         "id": attribute_id,
+    #         "metadata": attribute_metadata
+    #     }
         
-        headers = {
-                    "Content-Type": "application/json",
-                    # "Authorization": f"Bearer {token}"  
-                }
+    #     headers = {
+    #                 "Content-Type": "application/json",
+    #                 # "Authorization": f"Bearer {token}"  
+    #             }
         
-        try:
-            response = requests.put(url, json=payload, headers=headers)
-            response.raise_for_status()  
-            output = response.json()
-            return output
-        except Exception as e:
-            print(f"error : " +  str(e))
-            return {
-                "error": str(e)
-            }
+    #     try:
+    #         response = requests.put(url, json=payload, headers=headers)
+    #         response.raise_for_status()  
+    #         output = response.json()
+    #         return output
+    #     except Exception as e:
+    #         print(f"error : " +  str(e))
+    #         return {
+    #             "error": str(e)
+    #         }
 
-    def create_attribute_to_entity(self, date, entity_id, attribute_name, values): 
+    def create_attribute_to_entity(self, date, entity_id, attribute_name_for_table_name, values): 
         url = f"http://0.0.0.0:8080/entities/{entity_id}"
         payload = {
             "id": entity_id,
             "attributes": [
                 {
-                    "key": attribute_name,
+                    "key": attribute_name_for_table_name,
                     "value": {
                         "values": [
                             {
@@ -184,10 +186,39 @@ class WriteAttributes:
             return {
                 "error" : str(e)
             }
+            
+    def create_metadata_to_entity(self, entity_id, metadata): 
+        url = f"http://0.0.0.0:8080/entities/{entity_id}"
+        payload = {
+            "id": entity_id,
+             "metadata": metadata
+        }
+        
+        headers = {
+                    "Content-Type": "application/json",
+                    # "Authorization": f"Bearer {token}"  
+                }
+        
+        try:
+            response = requests.put(url, json=payload, headers=headers)
+            response.raise_for_status()  
+            output = response.json()
+            return output
+        except Exception as e:
+            print(f"error : " +  str(e))
+            return {
+                "error" : str(e)
+            }
     
-    def format_attribute_name(self, name):
+    
+    def format_attribute_name_for_table_name(self, name):
         formatted = name.replace(" ", "_").replace("-", "_")
-        return formatted.lower()
+        hashed = hashlib.md5(formatted.encode()).hexdigest()[:10] 
+        return hashed
+    
+    def format_attribute_name_as_human_readable(self, name):
+        formatted = name.replace("_", " ").replace("-", " ") 
+        return formatted.title()
             
     def traverse_folder(self, base_path):
         result = []
@@ -317,6 +348,7 @@ class WriteAttributes:
     def create_parent_categories_and_children_categories(self, result):
         count = 0
         node_ids = {}  
+        metadata_dict = {}
         
         print(f"Total items to process: {len(result)}")
         
@@ -326,6 +358,7 @@ class WriteAttributes:
             
             date = item["attributeReleaseDate"]
             if 'categoryData' in item:
+                pass
                 category_data = item['categoryData']
 
                 # --- Create parent node ---
@@ -336,34 +369,35 @@ class WriteAttributes:
                 elif 'minister' in item:
                     parent_of_parent_category_id = item["minister"]
                 
-                attribute_name = item['attributeName']
+                attribute_name = item['attributeName']  
                 attribute_data = item['attributeData']
                 
                 if parent_name not in node_ids:
                     node_id = self.generate_id_for_category(date, parent_of_parent_category_id, parent_name)
                     print(f"id >>>>>>>>>>>>>> {node_id}")
-                    print(f"🟡 Creating parent category node for ---> '{parent_name}'")
+                    print(f"🔄 Creating parent category node for ---> '{parent_name}'")
                     res = self.create_nodes(node_id.lower(), parent_name, 'parentCategory', date)
                     if res.get('id'):
                         count += 1
                         node_id = res['id']
                         node_ids[parent_name] = node_id
-                        print(f"🟢 Created parent category node for ---> '{parent_name}' with id: {node_id}")
+                        print(f"✅ Created parent category node for ---> '{parent_name}' with id: {node_id}")
                         parent_id = node_ids[parent_name]
-                        print(f"🟡 Creating relationship from {parent_of_parent_category_id} ---> {parent_id}")
+                        print(f"🔄 Creating relationship from {parent_of_parent_category_id} ---> {parent_id}")
                         res = self.create_relationships(parent_of_parent_category_id, parent_id, date)
                         if res.get('id'):
-                            print(f"🟢 Created relationship from {parent_of_parent_category_id} ---> {parent_id}")
+                            print(f"✅ Created relationship from {parent_of_parent_category_id} ---> {parent_id}")
                         else:
-                            print(f"🔴 Creating relationship from {parent_of_parent_category_id} ---> {parent_id} was unsuccessfull")
+                            print(f"❌ Creating relationship from {parent_of_parent_category_id} ---> {parent_id} was unsuccessfull")
                             print(f"With error ---> {res['error']}")
                     else:
-                        print(f"🔴 Creating parent category for {parent_name} was unsuccessfull")
+                        print(f"❌ Creating parent category for {parent_name} was unsuccessfull")
                         print(f"With error ---> {res['error']}") 
                         
                 else:
-                    print(f"🚩 Parent category node for ---> '{parent_name}' is already exists with the id: {node_ids[parent_name]}") 
+                    print(f"❗️ Parent category node for ---> '{parent_name}' is already exists with the id: {node_ids[parent_name]}") 
                 
+                print("\n")
                    
                 # --- Create child nodes ---
                 for key, child_name in category_data.items():
@@ -373,61 +407,94 @@ class WriteAttributes:
                             name_for_id = f"{parent_name}_{child_name}"
                             node_id = self.generate_id_for_category(date, parent_of_parent_category_id, name_for_id)
                             print(f"id >>>>>>>>>>>>>> {node_id}")
-                            print(f"🟡 Creating child node '{child_name}' for parent '{parent_name}'")
+                            print(f"🔄 Creating child node '{child_name}' for parent '{parent_name}'")
                             res = self.create_nodes(node_id, child_name, key, date)
                             if res.get("id"):
                                 count += 1
                                 node_id = res['id']
                                 node_ids[child_key] = node_id
-                                print(f"🟢 Created child node '{child_name}' with id: {node_id} for parent '{parent_name}'")   
+                                print(f"✅ Created child node '{child_name}' with id: {node_id} for parent '{parent_name}'")   
                                 child_id = node_ids[child_key]
                                 parent_id = node_ids[parent_name]
                                 # --- Create relationship ---
-                                print(f"🟡 Creating relationship from {parent_name} ---> {child_name}")
+                                print(f"🔄 Creating relationship from {parent_name} ---> {child_name}")
                                 res = self.create_relationships(parent_id, child_id, date)
                                 if res['relationships'][0]:
-                                    print(f"🟢 Created relationship from {parent_name} ---> {child_name}")
-                                    print(f"🟡 Creating attribute for {child_name} ---> {attribute_name}")
-                                    attribute_name = self.format_attribute_name(attribute_name)
-                                    print(f"attribute name>>>>>>{attribute_name}")
-                                    res = self.create_attribute_to_entity(date, child_id, attribute_name, attribute_data)
+                                    print(f"✅ Created relationship from {parent_name} ---> {child_name}")
+                                    print(f"🔄 Creating attribute for {child_name} ---> {attribute_name}")
+                                    attribute_name_for_table_name = self.format_attribute_name_for_table_name(attribute_name)
+                                    attribute_name_as_human_readable = self.format_attribute_name_as_human_readable(attribute_name)
+                                    print(f"  --Attribute name (Human readable) - {attribute_name_as_human_readable}")
+                                    print(f"  --Formatted attribute name for table name - {attribute_name_for_table_name}")
+                                    res = self.create_attribute_to_entity(date, child_id, attribute_name_for_table_name, attribute_data, attribute_name_as_human_readable)
                                     if res.get('id'):
-                                        print(f"🟢 Created attribute for {child_name} with attribute id {res['id']}")
+                                        print(f"✅ Created attribute for {child_name} with attribute id {res['id']}")
+                                        print(f"🔄 Storing metadata for {child_name}")
+                                        metadata = {
+                                            "human_readable_name" : attribute_name_as_human_readable,
+                                            "name": attribute_name_for_table_name
+                                        }
+                                        if parent_of_attribute in metadata_dict:
+                                            metadata_dict[child_id].append(metadata)
+                                        else:
+                                            metadata_dict[child_id] = [metadata]
+                                        
+                                        print(f"✅ Storing metadata for {child_name} successfull")
+                                        
                                     else:
-                                        print(f"🔴 Creating attribute for {child_name} was unsuccessfull")
+                                        print(f"❌ Creating attribute for {child_name} was unsuccessfull")
                                         print(f"With error ---> {res['error']}")     
                                 else:
-                                    print(f"🔴 Creating relationship from {parent_name} ---> {child_name} was unsuccessfull")
+                                    print(f"❌ Creating relationship from {parent_name} ---> {child_name} was unsuccessfull")
                                     print(f"With error ---> {res['error']}")
                             else:
-                                print(f"🔴 Creating child node {child_name} was unsuccessfull")
+                                print(f"❌ Creating child node {child_name} was unsuccessfull")
                                 print(f"With error ---> {res['error']}")  
                         else:
-                            print(f"🚩 Child node '{child_name}' for parent '{parent_name}' already exists with id: {node_ids[child_key]}")    
+                            print(f"❗️ Child node '{child_name}' for parent '{parent_name}' already exists with id: {node_ids[child_key]}")    
                             
                 print("=" * 200)   
                 
             else:
                 if 'minister' and 'department' in item:
                     parent_of_attribute = item["department"]
-                    print("🟡 Attribute directly connects to a Department") 
+                    print("❗️ Attribute directly connects to a Department") 
                 elif 'minister' in item:
                     parent_of_attribute = item["minister"]
-                    print("🟡 Attribute directly connected to a Ministry")
+                    print("❗️ Attribute directly connected to a Ministry")
                      
                 attribute_name = item['attributeName']
                 attribute_data = item['attributeData']
-                attribute_name = self.format_attribute_name(attribute_name)
-                print(f"attribute name>>>>>>{attribute_name}")
-                print(f"🟡 Creating attribute for {parent_of_attribute} ---> {attribute_name}")
-                res = self.create_attribute_to_entity(date, parent_of_attribute, attribute_name, attribute_data)
+                attribute_name_for_table_name = self.format_attribute_name_for_table_name(attribute_name)
+                attribute_name_as_human_readable = self.format_attribute_name_as_human_readable(attribute_name)
+                print(f"  --Attribute name (Human readable) - {attribute_name_as_human_readable}")
+                print(f"  --Formatted attribute name for table name - {attribute_name_for_table_name}")
+                print(f"🔄 Creating attribute for {parent_of_attribute} ---> {attribute_name}")
+                res = self.create_attribute_to_entity(date, parent_of_attribute, attribute_name_for_table_name, attribute_data)
                 if res.get('id'):
-                    print(f"🟢 Created attribute for {parent_of_attribute} with attribute id {res['id']}")
+                    print(f"✅ Created attribute for {parent_of_attribute} with attribute id {res['id']}")
+                    print(f"🔄 Storing metadata for {parent_of_attribute}")
+                    metadata = {
+                        "human_readable_name" : attribute_name_as_human_readable,
+                        "name": attribute_name_for_table_name
+                    }
+                    
+                    # If entity already exists, append; else create a new list
+                    if parent_of_attribute in metadata_dict:
+                        metadata_dict[parent_of_attribute].append(metadata)
+                    else:
+                        metadata_dict[parent_of_attribute] = [metadata]
+                        
+                    print(f"✅ Storing metadata for {parent_of_attribute} successfull")
+                    
                 else:
-                    print(f"🔴 Creating attribute for {parent_of_attribute} was unsuccessfull")
+                    print(f"❌ Creating attribute for {parent_of_attribute} was unsuccessfull")
                     print(f"With error ---> {res['error']}")
                     
                 print("=" * 200) 
-                    
+                
+        for entity_id, metadata in metadata_dict.items():
+            print(f"Entity ID: {entity_id}, Metadata: {metadata}")    
+                 
         return
     
