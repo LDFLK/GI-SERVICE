@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 import binascii
 from google.protobuf.wrappers_pb2 import StringValue
+import string
 
 class IncomingServiceAttributes:
     def __init__(self, config : dict):
@@ -100,10 +101,10 @@ class IncomingServiceAttributes:
                             response = requests.get(url, headers=headers)
                             response.raise_for_status()  
                             metadata = response.json()
-                            if decoded_name in metadata:
-                                item["human_readable_name"] = metadata[decoded_name].get("description", "No description available")
-                            else:
-                                item["human_readable_name"] = "No description available"
+                            for k, v in metadata.items():
+                                if k == decoded_name:
+                                    item["human_readable_name"] = v
+                                    break
                         except Exception as e:
                             metadata = {}
                             print(f"Error fetching metadata: {str(e)}")
@@ -133,23 +134,64 @@ class IncomingServiceAttributes:
         }
     
     def decode_protobuf_attribute_name(self, name : str) -> str:
-        data = json.loads(name)
-        
-        hex_value = data.get("value")
-        
-        decoded_bytes = binascii.unhexlify(hex_value)
-        decoded_str = decoded_bytes.decode("utf-8", errors="ignore")
-        
-        return decoded_str
+        try:
+            data = json.loads(name)
+            hex_value = data.get("value")
+            if not hex_value:
+                return ""
+
+            decoded_bytes = binascii.unhexlify(hex_value)
+            sv = StringValue()
+            try:
+                sv.ParseFromString(decoded_bytes)
+                return sv.value.strip()
+            except Exception:
+                decoded_str = decoded_bytes.decode("utf-8", errors="ignore")
+                cleaned = ''.join(ch for ch in decoded_str if ch.isprintable())
+                return cleaned.strip()
+        except Exception:
+            return ""
 
     
     def expose_data_for_the_attribute(self, ATTRIBUTE_PAYLOAD: ATTRIBUTE_PAYLOAD , entityId):
-        attribute_name = ATTRIBUTE_PAYLOAD.attribute_name
+        attribute_name_readable = ATTRIBUTE_PAYLOAD.attribute_name
+        attribute_name = ""
+        
+        url = f"{self.config['BASE_URL_QUERY']}/v1/entities/{entityId}/metadata"
+        headers = {
+            "Content-Type": "application/json",
+            # "Authorization": f"Bearer {token}"  
+        }
+        
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()  
+            metadata = response.json()
+            
+            print(f"Metadata fetched: {metadata}")
+            
+            for key, value in metadata.items():
+                decoded_str = self.decode_protobuf_attribute_name(value)
+                decoded_str_clean = decoded_str.strip().strip(string.punctuation)                
+                if decoded_str_clean == attribute_name_readable:
+                    print(f"Found attribute name : {key}")
+                    attribute_name = key
+                    break
+                
+            if not attribute_name:
+                return {
+                    "attributeName": attribute_name_readable,
+                    "error": "Attribute not found in metadata"
+                }
+        except Exception as e:
+            metadata = {}
+            print(f"Error fetching metadata: {str(e)}")
+            
         
         url = f"{self.config['BASE_URL_QUERY']}/v1/entities/{entityId}/attributes/{attribute_name}"
         
         headers = {
-            "Conten-Type": "application/json",
+            "Content-Type": "application/json",
             # "Authorization": f"Bearer {token}"    
         }
         
@@ -160,19 +202,19 @@ class IncomingServiceAttributes:
             
             if len(attribute_data) == 0:
                 return {
-                    "attributeName": attribute_name,
+                    "attributeName": attribute_name_readable,
                     "error": "No data found"
-                }
+                } 
             
             return{
-                "attributeName": attribute_name,
+                "attributeName": attribute_name_readable,
                 "data": attribute_data
             }
 
         except Exception as e:
             return{
-                "attributeName": attribute_name,
+                "attributeName": attribute_name_readable,
                 "error": f"No data found - Error occured - {str(e)}"
             }
-            
-        
+
+

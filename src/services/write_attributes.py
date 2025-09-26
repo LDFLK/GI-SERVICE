@@ -426,15 +426,15 @@ class WriteAttributes:
                                     attribute_name_as_human_readable = self.format_attribute_name_as_human_readable(attribute_name)
                                     print(f"  --Attribute name (Human readable) - {attribute_name_as_human_readable}")
                                     print(f"  --Formatted attribute name for table name - {attribute_name_for_table_name}")
-                                    res = self.create_attribute_to_entity(date, child_id, attribute_name_for_table_name, attribute_data, attribute_name_as_human_readable)
+                                    res = self.create_attribute_to_entity(date, child_id, attribute_name_for_table_name, attribute_data)
                                     if res.get('id'):
                                         print(f"✅ Created attribute for {child_name} with attribute id {res['id']}")
                                         print(f"🔄 Storing metadata for {child_name}")
                                         metadata = {
-                                            "human_readable_name" : attribute_name_as_human_readable,
-                                            "name": attribute_name_for_table_name
+                                            "key" : attribute_name_for_table_name,
+                                            "value": attribute_name_as_human_readable
                                         }
-                                        if parent_of_attribute in metadata_dict:
+                                        if child_id in metadata_dict:
                                             metadata_dict[child_id].append(metadata)
                                         else:
                                             metadata_dict[child_id] = [metadata]
@@ -475,10 +475,9 @@ class WriteAttributes:
                     print(f"✅ Created attribute for {parent_of_attribute} with attribute id {res['id']}")
                     print(f"🔄 Storing metadata for {parent_of_attribute}")
                     metadata = {
-                        "human_readable_name" : attribute_name_as_human_readable,
-                        "name": attribute_name_for_table_name
+                         "key": attribute_name_for_table_name,
+                         "value": attribute_name_as_human_readable
                     }
-                    
                     # If entity already exists, append; else create a new list
                     if parent_of_attribute in metadata_dict:
                         metadata_dict[parent_of_attribute].append(metadata)
@@ -494,7 +493,21 @@ class WriteAttributes:
                 print("=" * 200) 
                 
         for entity_id, metadata in metadata_dict.items():
-            print(f"Entity ID: {entity_id}, Metadata: {metadata}")    
+            print(f"Entity ID: {entity_id}, Metadata: {metadata} \n")  
+            
+        self.create_metadata_to_entities(metadata_dict)
                  
+        return
+    
+    def create_metadata_to_entities(self, metadata_dict):
+        for entity_id, metadata in metadata_dict.items():
+            print(f"🔄 Creating metadata for entity {entity_id}")
+            print(f"Metadata to be added: {metadata}")
+            res = self.create_metadata_to_entity(entity_id, metadata)
+            if res.get('id'):
+                print(f"✅ Created metadata for entity {entity_id} successfully")
+            else:
+                print(f"❌ Creating metadata for entity {entity_id} was unsuccessfull")
+                print(f"With error ---> {res['error']}")
         return
     
