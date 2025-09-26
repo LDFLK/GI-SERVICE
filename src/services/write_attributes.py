@@ -2,13 +2,18 @@ import os
 import json
 from datetime import datetime
 import requests
+import hashlib
 
 class WriteAttributes:
     def generate_id_for_category(self, date, parent_of_parent_category_id, name):
         date_for_id = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+        year = date_for_id.strftime("%Y")
         month_day = date_for_id.strftime("%m-%d").replace("-", "_")
-        node_id = f"{parent_of_parent_category_id}_cat_{name}_{month_day}"
-        return node_id.lower()
+        node_id = f"{parent_of_parent_category_id}_cat_{name}_{year}_{month_day}"
+        node_id = node_id.lower()
+        short_name = parent_of_parent_category_id+ "_" + hashlib.md5(node_id.encode()).hexdigest()[:10]
+        return short_name
+        # return node_id.lower()
 
     def create_nodes(self, node_id, node_name, node_key, date):
         
@@ -179,6 +184,10 @@ class WriteAttributes:
             return {
                 "error" : str(e)
             }
+    
+    def format_attribute_name(self, name):
+        formatted = name.replace(" ", "_").replace("-", "_")
+        return formatted.lower()
             
     def traverse_folder(self, base_path):
         result = []
@@ -308,8 +317,13 @@ class WriteAttributes:
     def create_parent_categories_and_children_categories(self, result):
         count = 0
         node_ids = {}  
-
+        
+        print(f"Total items to process: {len(result)}")
+        
+        print("=" * 200)
+    
         for item in result:
+            
             date = item["attributeReleaseDate"]
             if 'categoryData' in item:
                 category_data = item['categoryData']
@@ -327,6 +341,7 @@ class WriteAttributes:
                 
                 if parent_name not in node_ids:
                     node_id = self.generate_id_for_category(date, parent_of_parent_category_id, parent_name)
+                    print(f"id >>>>>>>>>>>>>> {node_id}")
                     print(f"🟡 Creating parent category node for ---> '{parent_name}'")
                     res = self.create_nodes(node_id.lower(), parent_name, 'parentCategory', date)
                     if res.get('id'):
@@ -357,6 +372,7 @@ class WriteAttributes:
                         if child_key not in node_ids:
                             name_for_id = f"{parent_name}_{child_name}"
                             node_id = self.generate_id_for_category(date, parent_of_parent_category_id, name_for_id)
+                            print(f"id >>>>>>>>>>>>>> {node_id}")
                             print(f"🟡 Creating child node '{child_name}' for parent '{parent_name}'")
                             res = self.create_nodes(node_id, child_name, key, date)
                             if res.get("id"):
@@ -372,6 +388,8 @@ class WriteAttributes:
                                 if res['relationships'][0]:
                                     print(f"🟢 Created relationship from {parent_name} ---> {child_name}")
                                     print(f"🟡 Creating attribute for {child_name} ---> {attribute_name}")
+                                    attribute_name = self.format_attribute_name(attribute_name)
+                                    print(f"attribute name>>>>>>{attribute_name}")
                                     res = self.create_attribute_to_entity(date, child_id, attribute_name, attribute_data)
                                     if res.get('id'):
                                         print(f"🟢 Created attribute for {child_name} with attribute id {res['id']}")
@@ -399,6 +417,8 @@ class WriteAttributes:
                      
                 attribute_name = item['attributeName']
                 attribute_data = item['attributeData']
+                attribute_name = self.format_attribute_name(attribute_name)
+                print(f"attribute name>>>>>>{attribute_name}")
                 print(f"🟡 Creating attribute for {parent_of_attribute} ---> {attribute_name}")
                 res = self.create_attribute_to_entity(date, parent_of_attribute, attribute_name, attribute_data)
                 if res.get('id'):
