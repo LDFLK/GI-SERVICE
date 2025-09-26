@@ -5,6 +5,7 @@ import json
 import binascii
 from google.protobuf.wrappers_pb2 import StringValue
 import string
+import re
 
 class IncomingServiceAttributes:
     def __init__(self, config : dict):
@@ -133,23 +134,69 @@ class IncomingServiceAttributes:
             "attributes": data_list_for_req_year
         }
     
-    def decode_protobuf_attribute_name(self, name : str) -> str:
+    # def decode_protobuf_attribute_namee(self, name : str) -> str:
+    #     try:
+    #         print(f"[DEBUG decode] input name: {name!r}")
+    #         data = json.loads(name)
+    #         hex_value = data.get("value")
+    #         print(f"[DEBUG decode] hex_value: {hex_value!r}")
+    #         if not hex_value:
+    #             return ""
+
+    #         decoded_bytes = binascii.unhexlify(hex_value)
+    #         sv = StringValue()
+    #         try:
+    #             sv.ParseFromString(decoded_bytes)
+    #             return sv.value.strip()
+    #         except Exception:
+    #             decoded_str = decoded_bytes.decode("utf-8", errors="ignore")
+    #             cleaned = ''.join(ch for ch in decoded_str if ch.isprintable())
+    #             return cleaned.strip()
+    #     except Exception as e:
+    #         print(f"[DEBUG decode] outer exception: {e}")
+    #         return ""
+    
+    def decode_protobuf_attribute_name(self, name: str) -> str:
+        """
+        Decode a protobuf StringValue from a JSON-encoded hex string.
+        Handles both proper protobuf-encoded values and raw hex strings.
+
+        Args:
+            name (str): JSON string containing a 'value' key with hex-encoded bytes.
+
+        Returns:
+            str: Decoded, human-readable string.
+        """
         try:
+            # Load the JSON string
             data = json.loads(name)
             hex_value = data.get("value")
             if not hex_value:
                 return ""
 
+            # Convert hex string to bytes
             decoded_bytes = binascii.unhexlify(hex_value)
+
+            # Try decoding as protobuf StringValue
             sv = StringValue()
             try:
                 sv.ParseFromString(decoded_bytes)
-                return sv.value.strip()
+                if sv.value:
+                    return sv.value.strip()
             except Exception:
-                decoded_str = decoded_bytes.decode("utf-8", errors="ignore")
-                cleaned = ''.join(ch for ch in decoded_str if ch.isprintable())
-                return cleaned.strip()
-        except Exception:
+                pass
+
+            # Fallback: decode as UTF-8 string
+            try:
+                decoded_str = decoded_bytes.decode("utf-8")
+                # Remove non-printable characters
+                return ''.join(ch for ch in decoded_str if ch.isprintable()).strip()
+            except Exception:
+                # Last-resort: ignore errors and filter printable characters
+                return ''.join(ch for ch in decoded_bytes.decode("utf-8", errors="ignore") if ch.isprintable()).strip()
+
+        except Exception as e:
+            print(f"[DEBUG decode] Exception: {e}")
             return ""
 
     
@@ -215,6 +262,92 @@ class IncomingServiceAttributes:
             return{
                 "attributeName": attribute_name_readable,
                 "error": f"No data found - Error occured - {str(e)}"
+            }
+    
+    def expose_all_attributes(self):
+        url = f"{self.config['BASE_URL_QUERY']}/v1/entities/search"
+        
+        payload = {
+            "kind": {
+                "major": "Dataset",
+                "minor": "tabular"
+            },
+        }
+        
+        headers = {
+            "Content-Type": "application/json",
+            # "Authorization": f"Bearer {token}"    
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+            response.raise_for_status()  
+            all_attributes = response.json()
+            
+            # access only the body
+            body = all_attributes.get('body', [])
+            
+            if len(body) == 0:
+                return {
+                    "message": "No attributes found"
+                } 
+            
+            # Group simplified items (id, name, created) by year extracted from 'created'
+            grouped_by_year = {}
+            
+            for item in body:
+                item_id = item.get("id") or item.get("entityId") or ""
+                raw_name = item.get("name", "")
+                hash_to_the_attribute_name = self.decode_protobuf_attribute_name(raw_name)
+                sliced_id = item_id.split("_attr")[0]
+                
+                url = f"{self.config['BASE_URL_QUERY']}/v1/entities/{sliced_id}/metadata"
+                
+                headers = {
+                    "Content-Type": "application/json",
+                    # "Authorization": f"Bearer {token}"  
+                }
+                try:
+                    response = requests.get(url, headers=headers)
+                    response.raise_for_status()  
+                    metadata = response.json()
+                    for key, value in metadata.items():
+                        if key == hash_to_the_attribute_name:
+                            attribute_name_to_decode = value
+                            decoded_name = self.decode_protobuf_attribute_name(attribute_name_to_decode)
+                            break
+                except Exception as e:
+                    metadata = {}
+                    print(f"Error fetching metadata: {str(e)}")
+                    decoded_name = "No description available"   
+                
+                created = item.get("created", "") or item.get("createdAt", "")
+                
+                year_key = "unknown"
+                if created:
+                    try:
+                        year_key = str(datetime.fromisoformat(created.replace("Z", "")).year)
+                    except Exception:
+                        m = re.search(r"\b(20\d{2}|19\d{2})\b", created)
+                        if m:
+                            year_key = m.group(0)
+                
+                simplified = {
+                    "id": item_id,
+                    "parent_entity_id": sliced_id,
+                    "attribute_hash_name": hash_to_the_attribute_name,
+                    "name": decoded_name,
+                    "created": created
+                }
+                grouped_by_year.setdefault(year_key, []).append(simplified)
+            
+            return {
+                "attributes": grouped_by_year
+            }
+
+        except Exception as e:
+            return{
+                "error": f"Error occured - {str(e)}"
             }
 
 

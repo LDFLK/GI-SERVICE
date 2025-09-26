@@ -13,6 +13,10 @@ def get_orgchart_service(config: dict = Depends(get_config)):
 def get_stat_service(config: dict = Depends(get_config)):
     return IncomingServiceAttributes(config)
 
+@router.get("/allAttributes")
+async def get_all_attributes(statService: IncomingServiceAttributes = Depends(get_stat_service)):
+    return statService.expose_all_attributes()
+
 # Get the relevant attributes for the entity
 @router.post("/data/entity/{entityId}")
 async def get_relevant_attributes_for_entity(ENTITY_PAYLOAD: ENTITY_PAYLOAD , entityId : str, statService: IncomingServiceAttributes = Depends(get_stat_service)):
