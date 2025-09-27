@@ -134,70 +134,71 @@ class IncomingServiceAttributes:
             "attributes": data_list_for_req_year
         }
     
-    # def decode_protobuf_attribute_namee(self, name : str) -> str:
-    #     try:
-    #         print(f"[DEBUG decode] input name: {name!r}")
-    #         data = json.loads(name)
-    #         hex_value = data.get("value")
-    #         print(f"[DEBUG decode] hex_value: {hex_value!r}")
-    #         if not hex_value:
-    #             return ""
-
-    #         decoded_bytes = binascii.unhexlify(hex_value)
-    #         sv = StringValue()
-    #         try:
-    #             sv.ParseFromString(decoded_bytes)
-    #             return sv.value.strip()
-    #         except Exception:
-    #             decoded_str = decoded_bytes.decode("utf-8", errors="ignore")
-    #             cleaned = ''.join(ch for ch in decoded_str if ch.isprintable())
-    #             return cleaned.strip()
-    #     except Exception as e:
-    #         print(f"[DEBUG decode] outer exception: {e}")
-    #         return ""
-    
-    def decode_protobuf_attribute_name(self, name: str) -> str:
-        """
-        Decode a protobuf StringValue from a JSON-encoded hex string.
-        Handles both proper protobuf-encoded values and raw hex strings.
-
-        Args:
-            name (str): JSON string containing a 'value' key with hex-encoded bytes.
-
-        Returns:
-            str: Decoded, human-readable string.
-        """
+    def decode_protobuf_attribute_name(self, name : str) -> str:
         try:
-            # Load the JSON string
+            print(f"[DEBUG decode] input name: {name!r}")
             data = json.loads(name)
             hex_value = data.get("value")
+            print(f"[DEBUG decode] hex_value: {hex_value!r}")
             if not hex_value:
                 return ""
 
-            # Convert hex string to bytes
             decoded_bytes = binascii.unhexlify(hex_value)
-
-            # Try decoding as protobuf StringValue
             sv = StringValue()
             try:
                 sv.ParseFromString(decoded_bytes)
-                if sv.value:
-                    return sv.value.strip()
+                return sv.value.strip()
             except Exception:
-                pass
-
-            # Fallback: decode as UTF-8 string
-            try:
-                decoded_str = decoded_bytes.decode("utf-8")
-                # Remove non-printable characters
-                return ''.join(ch for ch in decoded_str if ch.isprintable()).strip()
-            except Exception:
-                # Last-resort: ignore errors and filter printable characters
-                return ''.join(ch for ch in decoded_bytes.decode("utf-8", errors="ignore") if ch.isprintable()).strip()
-
+                decoded_str = decoded_bytes.decode("utf-8", errors="ignore")
+                cleaned = ''.join(ch for ch in decoded_str if ch.isprintable())
+                return cleaned.strip()
         except Exception as e:
-            print(f"[DEBUG decode] Exception: {e}")
+            print(f"[DEBUG decode] outer exception: {e}")
             return ""
+    
+    
+    # def decode_protobuf_attribute_name(self, name: str) -> str:
+    #     """
+    #     Decode a protobuf StringValue from a JSON-encoded hex string.
+    #     Handles both proper protobuf-encoded values and raw hex strings.
+
+    #     Args:
+    #         name (str): JSON string containing a 'value' key with hex-encoded bytes.
+
+    #     Returns:
+    #         str: Decoded, human-readable string.
+    #     """
+    #     try:
+    #         # Load the JSON string
+    #         data = json.loads(name)
+    #         hex_value = data.get("value")
+    #         if not hex_value:
+    #             return ""
+
+    #         # Convert hex string to bytes
+    #         decoded_bytes = binascii.unhexlify(hex_value)
+
+    #         # Try decoding as protobuf StringValue
+    #         sv = StringValue()
+    #         try:
+    #             sv.ParseFromString(decoded_bytes)
+    #             if sv.value:
+    #                 return sv.value.strip()
+    #         except Exception:
+    #             pass
+
+    #         # Fallback: decode as UTF-8 string
+    #         try:
+    #             decoded_str = decoded_bytes.decode("utf-8")
+    #             # Remove non-printable characters
+    #             return ''.join(ch for ch in decoded_str if ch.isprintable()).strip()
+    #         except Exception:
+    #             # Last-resort: ignore errors and filter printable characters
+    #             return ''.join(ch for ch in decoded_bytes.decode("utf-8", errors="ignore") if ch.isprintable()).strip()
+
+    #     except Exception as e:
+    #         print(f"[DEBUG decode] Exception: {e}")
+    #         return ""
 
     
     def expose_data_for_the_attribute(self, ATTRIBUTE_PAYLOAD: ATTRIBUTE_PAYLOAD , entityId):
@@ -264,6 +265,7 @@ class IncomingServiceAttributes:
                 "error": f"No data found - Error occured - {str(e)}"
             }
     
+    
     def expose_all_attributes(self):
         url = f"{self.config['BASE_URL_QUERY']}/v1/entities/search"
         
@@ -298,7 +300,8 @@ class IncomingServiceAttributes:
             for item in body:
                 item_id = item.get("id") or item.get("entityId") or ""
                 raw_name = item.get("name", "")
-                hash_to_the_attribute_name = self.decode_protobuf_attribute_name(raw_name)
+                # hash_to_the_attribute_name = self.decode_protobuf_attribute_name(raw_name)
+                hash_to_the_attribute_name = raw_name
                 sliced_id = item_id.split("_attr")[0]
                 
                 url = f"{self.config['BASE_URL_QUERY']}/v1/entities/{sliced_id}/metadata"
@@ -311,11 +314,12 @@ class IncomingServiceAttributes:
                     response = requests.get(url, headers=headers)
                     response.raise_for_status()  
                     metadata = response.json()
-                    for key, value in metadata.items():
-                        if key == hash_to_the_attribute_name:
-                            attribute_name_to_decode = value
-                            decoded_name = self.decode_protobuf_attribute_name(attribute_name_to_decode)
-                            break
+                    decoded_name = "No description available"
+                    # for key, value in metadata.items():
+                    #     if key == hash_to_the_attribute_name:
+                    #         attribute_name_to_decode = value
+                    #         decoded_name = self.decode_protobuf_attribute_name(attribute_name_to_decode)
+                    #         break
                 except Exception as e:
                     metadata = {}
                     print(f"Error fetching metadata: {str(e)}")

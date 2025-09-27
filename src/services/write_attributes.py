@@ -8,9 +8,9 @@ class WriteAttributes:
     def generate_id_for_category(self, date, parent_of_parent_category_id, name):
         date_for_id = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
         year = date_for_id.strftime("%Y")
-        month_day = date_for_id.strftime("%m_%d")
+        month_day = date_for_id.strftime("%m-%d")
 
-        raw = f"{parent_of_parent_category_id}|{name}|{year}|{month_day}"
+        raw = f"{parent_of_parent_category_id}-{name}-{year}-{month_day}"
 
         short_hash = hashlib.sha1(raw.encode()).hexdigest()[:10]
 
@@ -224,32 +224,80 @@ class WriteAttributes:
         result = []
 
         for root, dirs, files in os.walk(base_path):
-            if 'data.json' in files and 'metadata.json' in files:
+            # data.json is mandatory, metadata.json optional
+            if 'data.json' in files:
                 data_path = os.path.join(root, 'data.json')
                 metadata_path = os.path.join(root, 'metadata.json')
                 parent_folder_name = os.path.basename(root)
 
+                # Read data.json (required)
                 try:
                     with open(data_path, 'r', encoding='utf-8') as f:
                         content = f.read().strip()
                         if not content:
                             print(f"Skipping empty data.json in {root} \n")
-                            
                             continue
                         data_content = json.loads(content)
-                        
-                    with open(metadata_path, 'r', encoding='utf-8') as fm:
-                        content_metadata = fm.read().strip()
-                        if not content_metadata:
-                            print(f"Skipping empty metadata.json in {root}\n")
-                            continue
-                        metadata_content = json.loads(content_metadata)
                 except json.JSONDecodeError as e:
-                    print(f"Skipping invalid JSON in {root}: {e} \n")
+                    print(f"Skipping invalid JSON in {root} (data.json): {e} \n")
                     continue
                 except Exception as e:
                     print(f"Error reading {data_path}: {e}\n")
                     continue
+
+                # Read metadata.json (optional)
+                if 'metadata.json' in files:
+                    try:
+                        with open(metadata_path, 'r', encoding='utf-8') as fm:
+                            content_metadata = fm.read().strip()
+                            if not content_metadata:
+                                print(f"metadata.json empty in {root} — using placeholder\n")
+                                metadata_content = {"message": "No metadata found"}
+                            else:
+                                try:
+                                    metadata_content = json.loads(content_metadata)
+                                except json.JSONDecodeError as e:
+                                    print(f"Invalid metadata.json in {root}: {e} — using placeholder\n")
+                                    metadata_content = {"message": "Invalid metadata JSON"}
+                    except Exception as e:
+                        print(f"Error reading {metadata_path}: {e}\n")
+                        metadata_content = {"message": "No metadata found"}
+                else:
+                    # metadata missing -> use placeholder
+                    metadata_content = {"message": "No metadata found"}
+
+                # If data_content has columns & rows, validate rows lengths match columns count
+                attribute_data = None
+                if isinstance(data_content, dict) and 'columns' in data_content and 'rows' in data_content:
+                    columns = data_content.get('columns')
+                    rows = data_content.get('rows')
+
+                    if not isinstance(columns, list) or not isinstance(rows, list):
+                        print(f"[WARN] columns/rows in {data_path} are not lists — storing raw data\n")
+                        attribute_data = data_content
+                    else:
+                        expected_len = len(columns)
+                        valid_rows = []
+                        invalid_count = 0
+                        for i, row in enumerate(rows):
+                            if isinstance(row, list) and len(row) == expected_len:
+                                valid_rows.append(row)
+                            else:
+                                invalid_count += 1
+                                print(f"[WARN] Row #{i} in {data_path} has length {len(row) if isinstance(row, list) else 'N/A'}; expected {expected_len}")
+
+                        attribute_data = {
+                            "columns": columns,
+                            "rows": valid_rows,
+                            "validation": {
+                                "total_rows": len(rows),
+                                "valid_rows": len(valid_rows),
+                                "invalid_rows": invalid_count
+                            }
+                        }
+                else:
+                    # Not a tabular structure — keep as-is
+                    attribute_data = data_content
 
                 # Collect relation parts from parent folder back to base_path
                 relation_parts = [parent_folder_name]  # folder before data.json
@@ -275,7 +323,7 @@ class WriteAttributes:
                     "attributeName": parent_folder_name,
                     "relatedEntityName": relatedEntityName,
                     "relation": relation,
-                    "attributeData": data_content,
+                    "attributeData": attribute_data,
                     "attributeMetadata": metadata_content
                 })
 
@@ -376,7 +424,11 @@ class WriteAttributes:
                     node_id = self.generate_id_for_category(date, parent_of_parent_category_id, parent_name)
                     print(f"id >>>>>>>>>>>>>> {node_id}")
                     print(f"🔄 Creating parent category node for ---> '{parent_name}'")
-                    res = self.create_nodes(node_id.lower(), parent_name, 'parentCategory', date)
+                    date_for_id_u = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+                    year_u = date_for_id_u.strftime("%Y")
+                    month_day_u = date_for_id_u.strftime("%m-%d")
+                    parent_name_unique = f"{parent_of_parent_category_id}_{year_u}_{month_day_u}"
+                    res = self.create_nodes(node_id.lower(), parent_name_unique, 'parentCategory', date)
                     if res.get('id'):
                         count += 1
                         node_id = res['id']
@@ -408,7 +460,11 @@ class WriteAttributes:
                             node_id = self.generate_id_for_category(date, parent_of_parent_category_id, name_for_id)
                             print(f"id >>>>>>>>>>>>>> {node_id}")
                             print(f"🔄 Creating child node '{child_name}' for parent '{parent_name}'")
-                            res = self.create_nodes(node_id, child_name, key, date)
+                            date_for_id_u = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+                            year_u = date_for_id_u.strftime("%Y")
+                            month_day_u = date_for_id_u.strftime("%m-%d")
+                            child_name_unique = f"{child_name}_{year_u}_{month_day_u}"
+                            res = self.create_nodes(node_id, child_name_unique, key, date)
                             if res.get("id"):
                                 count += 1
                                 node_id = res['id']
@@ -426,6 +482,7 @@ class WriteAttributes:
                                     attribute_name_as_human_readable = self.format_attribute_name_as_human_readable(attribute_name)
                                     print(f"  --Attribute name (Human readable) - {attribute_name_as_human_readable}")
                                     print(f"  --Formatted attribute name for table name - {attribute_name_for_table_name}")
+                                    attribute_name_for_table_name = f"{attribute_name_for_table_name}_{year_u}_{month_day_u}"
                                     res = self.create_attribute_to_entity(date, child_id, attribute_name_for_table_name, attribute_data)
                                     if res.get('id'):
                                         print(f"✅ Created attribute for {child_name} with attribute id {res['id']}")
@@ -470,6 +527,10 @@ class WriteAttributes:
                 print(f"  --Attribute name (Human readable) - {attribute_name_as_human_readable}")
                 print(f"  --Formatted attribute name for table name - {attribute_name_for_table_name}")
                 print(f"🔄 Creating attribute for {parent_of_attribute} ---> {attribute_name}")
+                date_for_id_u = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+                year_u = date_for_id_u.strftime("%Y")
+                month_day_u = date_for_id_u.strftime("%m-%d")
+                attribute_name_for_table_name = f"{attribute_name_for_table_name}_{year_u}_{month_day_u}"
                 res = self.create_attribute_to_entity(date, parent_of_attribute, attribute_name_for_table_name, attribute_data)
                 if res.get('id'):
                     print(f"✅ Created attribute for {parent_of_attribute} with attribute id {res['id']}")
@@ -491,9 +552,6 @@ class WriteAttributes:
                     print(f"With error ---> {res['error']}")
                     
                 print("=" * 200) 
-                
-        for entity_id, metadata in metadata_dict.items():
-            print(f"Entity ID: {entity_id}, Metadata: {metadata} \n")  
             
         self.create_metadata_to_entities(metadata_dict)
                  
@@ -510,4 +568,4 @@ class WriteAttributes:
                 print(f"❌ Creating metadata for entity {entity_id} was unsuccessfull")
                 print(f"With error ---> {res['error']}")
         return
-    
+
