@@ -33,12 +33,13 @@ async def get_relevant_attributes_for_datasets(ATTRIBUTE_PAYLOAD: ATTRIBUTE_PAYL
 @router.post("/data/writeAttributes")
 async def write_attributes(WRITE_PAYLOAD: WRITE_PAYLOAD):
     # Example : base_url = "/Users/yasandu/Documents/RawData/data/2022, "/Users/yasandu/Desktop/datasets/data/2019""
-    base_url = WRITE_PAYLOAD.base_url
+    # base_url = WRITE_PAYLOAD.base_url
+    base_url = "/Users/vibhatha/github/datasets/data/2022"
     result = writer.traverse_folder(base_url)
     result = writer.pre_process_traverse_result(result)
     result = writer.entity_validator(result)
-    return writer.create_parent_categories_and_children_categories(result)
     # return result
+    return writer.create_parent_categories_and_children_categories_v2(result)
 
 # Get the timeline for the orgchart
 @router.get("/data/orgchart/timeline")

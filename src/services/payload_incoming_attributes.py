@@ -265,6 +265,92 @@ class IncomingServiceAttributes:
                 "error": f"No data found - Error occured - {str(e)}"
             }
     
+
+    def expose_all_attributes_v2(self):
+        url = f"{self.config['BASE_URL_QUERY']}/v1/entities/search"
+        
+        payload = {
+            "kind": {
+                "major": "Dataset",
+                "minor": "tabular"
+            },
+        }
+        
+        headers = {
+            "Content-Type": "application/json",
+            # "Authorization": f"Bearer {token}"    
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+            response.raise_for_status()  
+            all_attributes = response.json()
+            
+            # access only the body
+            body = all_attributes.get('body', [])
+            
+            if len(body) == 0:
+                return {
+                    "message": "No attributes found"
+                } 
+            
+            # Group simplified items (id, name, created) by year extracted from 'created'
+            grouped_by_year = {}
+            
+            for item in body:
+                item_id = item.get("id") or item.get("entityId") or ""
+                raw_name = item.get("name", "")
+                hash_to_the_attribute_name = self.decode_protobuf_attribute_name(raw_name)
+                sliced_id = item_id.split("_attr")[0]
+                
+                url = f"{self.config['BASE_URL_QUERY']}/v1/entities/{sliced_id}/metadata"
+                
+                headers = {
+                    "Content-Type": "application/json",
+                    # "Authorization": f"Bearer {token}"  
+                }
+                try:
+                    response = requests.get(url, headers=headers)
+                    response.raise_for_status()  
+                    metadata = response.json()
+                    for key, value in metadata.items():
+                        if key == hash_to_the_attribute_name:
+                            attribute_name_to_decode = value
+                            decoded_name = self.decode_protobuf_attribute_name(attribute_name_to_decode)
+                            break
+                except Exception as e:
+                    metadata = {}
+                    print(f"Error fetching metadata: {str(e)}")
+                    decoded_name = "No description available"   
+                
+                created = item.get("created", "") or item.get("createdAt", "")
+                
+                year_key = "unknown"
+                if created:
+                    try:
+                        year_key = str(datetime.fromisoformat(created.replace("Z", "")).year)
+                    except Exception:
+                        m = re.search(r"\b(20\d{2}|19\d{2})\b", created)
+                        if m:
+                            year_key = m.group(0)
+                
+                simplified = {
+                    "id": item_id,
+                    "parent_entity_id": sliced_id,
+                    "attribute_hash_name": hash_to_the_attribute_name,
+                    "name": decoded_name,
+                    "created": created
+                }
+                grouped_by_year.setdefault(year_key, []).append(simplified)
+            
+            return {
+                "attributes": grouped_by_year
+            }
+        except Exception as e:
+            return{
+                "error": f"Error occured - {str(e)}"
+            }
+
     
     def expose_all_attributes(self):
         url = f"{self.config['BASE_URL_QUERY']}/v1/entities/search"
@@ -300,8 +386,7 @@ class IncomingServiceAttributes:
             for item in body:
                 item_id = item.get("id") or item.get("entityId") or ""
                 raw_name = item.get("name", "")
-                # hash_to_the_attribute_name = self.decode_protobuf_attribute_name(raw_name)
-                hash_to_the_attribute_name = raw_name
+                hash_to_the_attribute_name = self.decode_protobuf_attribute_name(raw_name)
                 sliced_id = item_id.split("_attr")[0]
                 
                 url = f"{self.config['BASE_URL_QUERY']}/v1/entities/{sliced_id}/metadata"
@@ -314,12 +399,12 @@ class IncomingServiceAttributes:
                     response = requests.get(url, headers=headers)
                     response.raise_for_status()  
                     metadata = response.json()
-                    decoded_name = "No description available"
-                    # for key, value in metadata.items():
-                    #     if key == hash_to_the_attribute_name:
-                    #         attribute_name_to_decode = value
-                    #         decoded_name = self.decode_protobuf_attribute_name(attribute_name_to_decode)
-                    #         break
+                    for key, value in metadata.items():
+                        if key == hash_to_the_attribute_name:
+                            attribute_name_to_decode = value
+                            decoded_name = self.decode_protobuf_attribute_name(attribute_name_to_decode)
+                            break
+
                 except Exception as e:
                     metadata = {}
                     print(f"Error fetching metadata: {str(e)}")
