@@ -482,7 +482,7 @@ class WriteAttributes:
                                     attribute_name_as_human_readable = self.format_attribute_name_as_human_readable(attribute_name)
                                     print(f"  --Attribute name (Human readable) - {attribute_name_as_human_readable}")
                                     print(f"  --Formatted attribute name for table name - {attribute_name_for_table_name}")
-                                    attribute_name_for_table_name = f"{attribute_name_for_table_name}_{year_u}_{month_day_u}"
+                                    attribute_name_for_table_name = f"{attribute_name_for_table_name}_{year_u}_{node_id}"
                                     res = self.create_attribute_to_entity(date, child_id, attribute_name_for_table_name, attribute_data)
                                     if res.get('id'):
                                         print(f"✅ Created attribute for {child_name} with attribute id {res['id']}")
@@ -530,7 +530,7 @@ class WriteAttributes:
                 date_for_id_u = datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
                 year_u = date_for_id_u.strftime("%Y")
                 month_day_u = date_for_id_u.strftime("%m-%d")
-                attribute_name_for_table_name = f"{attribute_name_for_table_name}_{year_u}_{month_day_u}"
+                attribute_name_for_table_name = f"{attribute_name_for_table_name}_{year_u}_{parent_of_attribute}"
                 res = self.create_attribute_to_entity(date, parent_of_attribute, attribute_name_for_table_name, attribute_data)
                 if res.get('id'):
                     print(f"✅ Created attribute for {parent_of_attribute} with attribute id {res['id']}")
