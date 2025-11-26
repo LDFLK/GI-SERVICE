@@ -216,7 +216,7 @@ class IncomingServiceAttributes:
                 "error": f"No data found - Error occured - {str(e)}"
             }
     
-    async def fetch_relation(self,session, id, relationName):
+    async def fetch_relation(self,session, id, relationName, activeAt=""):
         url = f"{self.config['BASE_URL_QUERY']}/v1/entities/{id}/relations"
         headers = {"Content-Type": "application/json"}  
         payload = {
@@ -225,7 +225,7 @@ class IncomingServiceAttributes:
             "endTime": "",
             "id": "",
             "name": relationName,
-            "activeAt": "",
+            "activeAt": activeAt,
             "direction": "OUTGOING",
         }
         async with session.post(url, json=payload, headers=headers) as response:
