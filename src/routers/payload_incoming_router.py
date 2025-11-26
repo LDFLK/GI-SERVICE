@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from src.models import ENTITY_PAYLOAD, ATTRIBUTE_PAYLOAD, WRITE_PAYLOAD
-from src.services import IncomingServiceAttributes, WriteAttributes
+from src.services import IncomingServiceAttributes, WriteAttributes, BenchmarkTestingService
 from src.dependencies import get_config
 from chartFactory.utils import transform_data_for_chart
 from aiohttp import ClientSession, ClientTimeout
@@ -14,6 +14,9 @@ def get_stat_service(config: dict = Depends(get_config)):
 
 def get_writer_service(config: dict = Depends(get_config)):
     return WriteAttributes(config)
+
+def get_benchmark_service(config: dict = Depends(get_config)):
+    return BenchmarkTestingService(config)
 
 async def get_http_session() -> AsyncGenerator[ClientSession, None]:
     timeout = ClientTimeout(total=90, connect=30, sock_connect=30, sock_read=90)
@@ -139,3 +142,16 @@ async def get_president_tenure(
 # @router.post("/data/orgchart/departments")
 # async def get__for_orgchart(orgchartService: IncomingServiceOrgchart = Depends(get_orgchart_service)):
 #     return
+
+
+# benchmark testing
+@router.post("/testing/benchmark",summary="Benchmark Testing API",
+    description="This endpoint is used to test benchmark performance.", tags=["Benchmark Testing"])
+async def benchmarkTestingApi(
+    presidentId: str,
+    selectedDate: str,
+    benchmarkService: BenchmarkTestingService = Depends(get_benchmark_service),
+    statService: IncomingServiceAttributes = Depends(get_stat_service),
+    session: ClientSession = Depends(get_http_session)):
+    result = await benchmarkService.benchmarkTestingAPI(session, presidentId=presidentId, selectedDate=selectedDate, statService=statService)
+    return result
