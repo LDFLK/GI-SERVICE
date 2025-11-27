@@ -43,7 +43,7 @@ class BenchmarkTestingService:
                 for minister_data, minister in zip(minister_data_list, appointedMinisters)
             ]
 
-        url = f"{self.config["BASE_URL_QUERY"]}/v1/entities/{presidentId}/relations"
+        url = f"{self.config['BASE_URL_QUERY']}/v1/entities/{presidentId}/relations"
         headers = {"Content-Type": "application/json"}
         payload = {
             "name": "AS_MINISTER",
