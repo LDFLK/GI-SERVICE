@@ -2,12 +2,20 @@ from src.models.organisation_schemas import Entity, Relation
 from src.exception.exceptions import BadRequestError
 from src.exception.exceptions import InternalServerError
 from src.exception.exceptions import NotFoundError
+from tenacity import retry, stop_after_attempt, retry_if_not_exception_type, wait_random
 from aiohttp import ClientSession
 from src.utils.http_client import http_client
 from src.core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
+
+api_retry_decorator = retry(
+    stop=stop_after_attempt(3),
+    wait=wait_random(min=1, max=2),
+    retry=retry_if_not_exception_type((NotFoundError, BadRequestError)),
+    reraise=True
+)
 
 class OpenGINService:
     """
@@ -19,7 +27,8 @@ class OpenGINService:
     @property
     def session(self) -> ClientSession:
         return http_client.session
-        
+    
+    @api_retry_decorator
     async def get_entity(self,entity: Entity):
 
         if not entity:
@@ -31,9 +40,10 @@ class OpenGINService:
 
         try:
             async with self.session.post(url, json=payload, headers=headers) as response:
-                
                 if response.status == 404:
                     raise NotFoundError(f"Read API Error: Entity not found for id {entity.id}")
+                if response.status == 400:
+                    raise BadRequestError(f"Read API Error: Bad request for id {entity.id}")
                 
                 response.raise_for_status()
                 res_json = await response.json()
@@ -53,6 +63,7 @@ class OpenGINService:
             logger.error(f'Read API Error: {str(e)}')
             raise InternalServerError("An unexpected error occurred") from e
     
+    @api_retry_decorator
     async def fetch_relation(self, entityId: str, relation: Relation):
         
         if not entityId or not relation:
@@ -68,6 +79,10 @@ class OpenGINService:
 
         try:
             async with self.session.post(url, json=payload, headers=headers) as response:
+                if response.status == 404:
+                    raise NotFoundError(f"Read API Error: Relation not found for id {entityId}")
+                if response.status == 400:
+                    raise BadRequestError(f"Read API Error: Bad request for id {entityId}")
                 response.raise_for_status()
                 data = await response.json()
                 result = [Relation.model_validate(item) for item in data]
