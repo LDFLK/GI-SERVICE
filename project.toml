@@ -1,0 +1,23 @@
+[project]
+name = "gi-service"
+licenses = ["Apache-2.0"]
+
+[build]
+builder = "paketobuildpacks/builder-jammy-base"
+exclude = [
+    ".git",
+    ".github",
+    ".venv",
+    "test",
+    "tests",
+    "__pycache__",
+    "*.pyc"
+]
+
+[[build.env]]
+name = "BP_CPYTHON_VERSION"
+value = "3.12"
+
+[[build.env]]
+name = "BP_KEEP_FILES"
+value = "static/*"
