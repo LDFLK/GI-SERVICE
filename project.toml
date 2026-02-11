@@ -1,6 +1,13 @@
+[_schema-version]
+version = "0.2"
+
 [project]
-name = "gi-service"
-licenses = ["Apache-2.0"]
+id = "gi-service"
+name = "GI Service"
+version = "1.0.0"
+
+[[project.licenses]]
+type = "Apache-2.0"
 
 [build]
 builder = "paketobuildpacks/builder-jammy-base"
