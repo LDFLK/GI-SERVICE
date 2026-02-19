@@ -4,6 +4,7 @@ from src.routers import organisation_router, data_router, search_router, person_
 from dotenv import load_dotenv
 import os
 from fastapi.middleware.cors import CORSMiddleware
+from src.middleware.throttling import ThrottlingMiddleware
 from src.utils.http_client import http_client
 from contextlib import asynccontextmanager
 import logging
@@ -52,6 +53,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(ThrottlingMiddleware)
 
 app.include_router(payload_incoming_router.router)
 app.include_router(organisation_router)
