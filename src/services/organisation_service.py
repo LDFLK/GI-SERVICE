@@ -8,8 +8,7 @@ from src.utils.util_functions import Util
 from aiohttp import ClientSession
 from src.utils import http_client
 from src.models.organisation_schemas import Entity, Relation
-from typing import Optional
-import re
+from typing import Optional, Sequence
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,6 +20,7 @@ class OrganisationService:
     def __init__(self, config: dict, opengin_service):
         self.config = config
         self.opengin_service = opengin_service
+        self.department_semaphore = asyncio.Semaphore(10)
 
     @property
     def session(self) -> ClientSession:
@@ -416,6 +416,208 @@ class OrganisationService:
 
             return final_result
         
+        except (BadRequestError, NotFoundError):
+            raise
+        except Exception as e:
+            raise InternalServerError("An unexpected error occurred") from e
+
+    # API: cabinet flow fot the given president id and date range of the presidency
+    async def get_active_ministers(self, entity_id, date_active):
+
+        relation = Relation(name=RelationNameEnum.AS_MINISTER.value,activeAt=Util.normalize_timestamp(date_active),direction=RelationDirectionEnum.OUTGOING.value)
+
+        minister_relations = await self.opengin_service.fetch_relation(
+                entityId=entity_id,
+                relation=relation
+            )        
+        return [item.relatedEntityId for item in minister_relations]
+
+    async def get_active_departments(self, entity_id, date_active):
+
+        relation = Relation(name=RelationNameEnum.AS_DEPARTMENT.value,activeAt=Util.normalize_timestamp(date_active),direction=RelationDirectionEnum.OUTGOING.value)
+
+        department_relations = await self.opengin_service.fetch_relation(
+                entityId=entity_id,
+                relation=relation
+            )      
+
+        return [
+            {
+                "ministerId": entity_id,
+                "departmentId": item.relatedEntityId
+            }
+            for item in department_relations
+        ]
+    
+    async def get_ministers_and_departments(self, president_id: str, selected_date: str):
+                
+        departments_results = []
+
+        try:
+            minister_ids = await self.get_active_ministers(president_id, selected_date)
+
+            if not minister_ids:
+                return departments_results
+
+            tasks_for_departments = [
+                self.get_active_departments(minister_id, selected_date)
+                for minister_id in minister_ids
+            ]
+            
+            departments_results = await asyncio.gather(*tasks_for_departments, return_exceptions=True)
+
+            flattened_results = []
+            for result in departments_results:
+                if isinstance(result, list):
+                    flattened_results.extend(result)
+            return flattened_results
+
+        except (BadRequestError, NotFoundError):
+            raise
+        except Exception as e:
+            raise InternalServerError("An unexpected error occurred") from e
+    
+    async def fetch_cabinet_flow(self, president_id: str, dates: Sequence[str]):
+        """
+        Fetch Cabinet Flow
+        
+        :param president_id: President ID
+        :param dates: List of dates
+
+        output format: 
+        {
+            "nodes": [
+                {"name": "<minister_id>", "time": "<date>"}
+            ],
+            "links": [
+                {"source": <node_index>, "target": <node_index>, "value": <count>}
+            ]
+        }
+        """
+        MAX_DATES = 3
+        
+        if len(dates) > MAX_DATES:
+            raise BadRequestError("Too many dates requested, only 3 dates are allowed")
+        
+        if len(dates) == 1:
+            raise ValueError("At least 2 dates required for the comparison")
+
+        try:
+            tasks_for_dates = [
+                self.get_ministers_and_departments(president_id, date)
+                for date in dates
+            ]
+            dates_gov_struct = await asyncio.gather(*tasks_for_dates, return_exceptions=True)
+
+            departments_by_ministers = {}
+            name_lookup = {}
+            expected_slots = len(dates)
+            nodes: list[dict[str, str]] = []
+            node_indices: dict[tuple[str, int], int] = {} # key: (minister_id, date_index), value: node_index
+            links_counter: dict[tuple[int, int], int] = {}
+            date_status: list[dict[str, object]] = [
+                {"date": d, "status": "pending"} for d in dates
+            ]
+
+            for date_index, result in enumerate(dates_gov_struct):
+                if isinstance(result, Exception):
+                    date_status[date_index] = {
+                        "date": dates[date_index],
+                        "status": "error",
+                        "message": str(result),
+                    }
+                    continue
+
+                if not isinstance(result, list):
+                    date_status[date_index] = {
+                        "date": dates[date_index],
+                        "status": "error",
+                        "message": "Unexpected response type while building cabinet flow",
+                    }
+                    continue
+                
+                if not result:
+                    date_status[date_index] = {
+                        "date": dates[date_index],
+                        "status": "no_data",
+                        "departmentsCount": 0,
+                    }
+                    continue
+                
+                date_status[date_index] = {
+                    "date": dates[date_index],
+                    "status": "ok",
+                    "departmentsCount": len(result),
+                }
+
+                for relation in result:
+                    if not isinstance(relation, dict):
+                        continue
+
+                    department_id = relation.get("departmentId")
+                    minister_id = relation.get("ministerId")
+
+                    if not department_id:
+                        continue
+
+                    # create nodes dict
+                    node_index = None
+                    if minister_id:
+                        node_key = (minister_id, date_index)
+                        node_index = node_indices.get(node_key)
+                        if node_index is None:
+                            node_index = len(nodes)
+                            node_indices[node_key] = node_index
+                            nodes.append({
+                                "id": minister_id,
+                                "time": dates[date_index]
+                            })
+
+                    # For each department, maintain a "timeline" across requested dates.
+                    # departments_by_ministers[department_id] = [node_index_at_date0, node_index_at_date1, ...]
+                    # Each node_index points into `nodes` (which is keyed by (minister_id, date_index)).
+                    timeline = departments_by_ministers.get(department_id)  # reuse the same list across dates
+                    if timeline is None:
+                        timeline = [None] * expected_slots
+                        departments_by_ministers[department_id] = timeline
+                    # Compare consecutive dates for this department to detect a move.
+                    # previous_index is the minister-node at dates[date_index - 1]; node_index is at dates[date_index].
+                    previous_index = timeline[date_index - 1] if date_index > 0 else None
+                    timeline[date_index] = node_index
+
+                    # Aggregate movements: each department that goes from previous_index -> node_index adds +1 to that link.
+                    if previous_index is not None and node_index is not None:
+                        key = (previous_index, node_index)
+                        links_counter[key] = links_counter.get(key, 0) + 1 # increment the number of departments moved from m1->m2
+                    
+            links = [
+                {"source": source, "target": target, "value": value}
+                for (source, target), value in links_counter.items()
+            ]
+            
+            unique_ids = list({node['id'] for node in nodes})
+            tasks_for_getting_names = [
+                self.opengin_service.get_entities(
+                    entity= Entity(id=id)
+                )
+                for id in unique_ids
+            ]
+            name_output = await asyncio.gather(*tasks_for_getting_names, return_exceptions=True) 
+            
+            for name_obj in name_output:
+                if isinstance(name_obj, Exception):
+                    continue
+                for name in name_obj:
+                    name_lookup[name.id] = Util.decode_protobuf_attribute_name(name.name)
+                        
+            for node in nodes:
+                node["name"] = name_lookup.get(node['id'])
+
+            return {
+                "nodes": nodes,
+                "links": links,
+                "dates": date_status,
+            }
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
