@@ -678,20 +678,38 @@ class OrganisationService:
         try:
             # 1. Get Lineage and Initial Relations
             department_ids = await self._get_renamed_lineage(department_id)
+            department_id_list = list(department_ids)
             
-            ministry_department_relation_map = await self._fetch_and_map_relations(
-                list(department_ids), 
-                Relation(name="AS_DEPARTMENT", direction="INCOMING")
+            department_info_map, ministry_department_relation_map = await asyncio.gather(
+                self._fetch_and_map_entities(department_id_list),
+                self._fetch_and_map_relations(
+                    department_id_list,
+                    Relation(name="AS_DEPARTMENT", direction="INCOMING")
+                )
             )
+
+            department_name_map = {
+                entity_id: Util.decode_protobuf_attribute_name(entity.name)
+                for entity_id, entity in department_info_map.items()
+            }
             
             # Filter out same startTime and endTime min-dep relations
             all_ministry_department_relations = [
-                relation for relations in ministry_department_relation_map.values() for relation in relations 
+                {
+                    "department_id": current_department_id,
+                    "department_name": department_name_map.get(current_department_id, ""),
+                    "relation": relation,
+                }
+                for current_department_id, relations in ministry_department_relation_map.items()
+                for relation in relations
                 if relation.startTime != relation.endTime
             ]
 
             # 2. Fetch all Ministry Info and Person Appointment relations in parallel
-            ministry_ids = list(set(relation.relatedEntityId for relation in all_ministry_department_relations))
+            ministry_ids = list(set(
+                relation_item["relation"].relatedEntityId
+                for relation_item in all_ministry_department_relations
+            ))
             
             ministry_info_map, person_appointment_relation_map = await asyncio.gather(
                 self._fetch_and_map_entities(ministry_ids),
@@ -704,13 +722,16 @@ class OrganisationService:
 
             # 4. Filter person appointments that overlap with this specific ministry-department period
             enriched = []
-            for ministry_department_relation in all_ministry_department_relations:
+            for ministry_department_item in all_ministry_department_relations:
+                ministry_department_relation = ministry_department_item["relation"]
                 ministry_id = ministry_department_relation.relatedEntityId
                 ministry_entity = ministry_info_map.get(ministry_id)
                 if not ministry_entity:
                     continue
                 
                 ministry_name = Util.decode_protobuf_attribute_name(ministry_entity.name)
+                current_department_name = ministry_department_item["department_name"]
+                current_department_id = ministry_department_item["department_id"]
                 
                 relevant_persons = []
                 for person_appointment in person_appointment_relation_map.get(ministry_id, []):
@@ -723,6 +744,8 @@ class OrganisationService:
                     
                     if overlap_start < overlap_end:
                         relevant_persons.append({
+                            "_department_source_id": current_department_id,
+                            "department_name": current_department_name,
                             "ministry_id": ministry_id,
                             "ministry_name": ministry_name,
                             "minister_id": person_entity.id,
@@ -739,6 +762,8 @@ class OrganisationService:
                 for person in relevant_persons:
                     if current_time < person["startTime"]:
                         enriched.append({
+                            "_department_source_id": current_department_id,
+                            "department_name": current_department_name,
                             "ministry_id": ministry_id, "ministry_name": ministry_name,
                             "minister_id": None, "startTime": current_time, "endTime": person["startTime"]
                         })
@@ -746,6 +771,8 @@ class OrganisationService:
                 
                 if current_time < relation_end:
                     enriched.append({
+                        "_department_source_id": current_department_id,
+                        "department_name": current_department_name,
                         "ministry_id": ministry_id, "ministry_name": ministry_name,
                         "minister_id": None, "startTime": current_time, "endTime": relation_end
                     })
@@ -780,6 +807,7 @@ class OrganisationService:
             collapsed = []
             for entry in enriched:
                 if collapsed and (collapsed[-1]["minister_id"] == entry["minister_id"] and 
+                                  collapsed[-1]["_department_source_id"] == entry["_department_source_id"] and
                                   collapsed[-1]["ministry_name"] == entry["ministry_name"] and 
                                   collapsed[-1]["endTime"] >= entry["startTime"]):
                     collapsed[-1]["endTime"] = max(collapsed[-1]["endTime"], entry["endTime"])
@@ -792,7 +820,7 @@ class OrganisationService:
                 actual_end = None if entry["endTime"] == FAR_FUTURE else entry["endTime"]
                 entry["period"] = Util.term(entry["startTime"], actual_end, get_full_date=True)
 
-                for key in ["startTime", "endTime"]:
+                for key in ["startTime", "endTime", "_department_source_id"]:
                     entry.pop(key, None)
 
             return collapsed
@@ -800,4 +828,3 @@ class OrganisationService:
         except Exception as e:
             logger.error(f"Error in enrich_department_timeline: {e}")
             raise InternalServerError("An unexpected error occurred") from e
-

@@ -526,6 +526,8 @@ async def test_department_history_timeline_success(
 
     async def get_entities_handler(entity):
         mapping = {
+            "dep_01": "4465706172746d656e74204f6e65",
+            "dep_02": "4465706172746d656e742054776f",
             "min_01": "4d696e6973747279204f6e65",
             "min_02": "4d696e69737472792054776f",
             "pers_01": "4d696e69737465722041",
@@ -562,13 +564,17 @@ async def test_department_history_timeline_success(
 
     assert len(result) == 6
     assert result[0]["minister_name"] == "President X"
+    assert result[0]["department_name"] == "Department Two"
     assert result[1]["minister_name"] == "Minister A"
     assert result[1]["ministry_name"] == "Ministry Two"
+    assert result[1]["department_name"] == "Department Two"
     assert result[4]["minister_name"] == "Minister A"
     assert result[4]["ministry_name"] == "Ministry One"
+    assert result[4]["department_name"] == "Department One"
     assert "period" in result[0]
     assert "startTime" not in result[0]
     assert "endTime" not in result[0]
+    assert "_department_source_id" not in result[0]
 
 
 @pytest.mark.asyncio
@@ -614,6 +620,13 @@ async def test_department_history_timeline_collapsing(
         return []
 
     async def get_entities_handler(entity):
+        if entity.id == "dep_01":
+            return [
+                Entity(
+                    id="dep_01",
+                    name='{"value": "4465706172746d656e74206f66204d65646961"}',
+                )
+            ]
         if entity.id in ["min_01", "min_02"]:
             # "Ministry of Media" in hex
             return [
@@ -636,7 +649,73 @@ async def test_department_history_timeline_collapsing(
     # Should collapse into ONE entry because same name and same person across min_01 and min_02
     assert len(result) == 1
     assert result[0]["minister_name"] == "Ranil"
+    assert result[0]["department_name"] == "Department of Media"
     assert result[0]["period"] == "2020-01-01 - 2022-01-01"
+
+
+@pytest.mark.asyncio
+async def test_department_history_timeline_keeps_renamed_departments_separate(
+    organisation_service, mock_opengin_service
+):
+    department_id = "dep_01"
+
+    async def fetch_relation_handler(entityId, relation):
+        if relation.name == "RENAMED_TO":
+            return [Relation(relatedEntityId="dep_02")] if entityId == "dep_01" else []
+        if relation.name == "AS_DEPARTMENT":
+            if entityId == "dep_01":
+                return [
+                    Relation(
+                        relatedEntityId="min_01",
+                        startTime="2020-01-01T00:00:00Z",
+                        endTime="2021-01-01T00:00:00Z",
+                    )
+                ]
+            if entityId == "dep_02":
+                return [
+                    Relation(
+                        relatedEntityId="min_02",
+                        startTime="2021-01-01T00:00:00Z",
+                        endTime="2022-01-01T00:00:00Z",
+                    )
+                ]
+        if relation.name == "AS_APPOINTED":
+            return [
+                Relation(
+                    relatedEntityId="pers_01",
+                    startTime="2020-01-01T00:00:00Z",
+                    endTime="2022-01-01T00:00:00Z",
+                )
+            ]
+        return []
+
+    async def get_entities_handler(entity):
+        mapping = {
+            "dep_01": "4465706172746d656e74204f6e65",
+            "dep_02": "4465706172746d656e742054776f",
+            "min_01": "4d696e6973747279206f66204d65646961",
+            "min_02": "4d696e6973747279206f66204d65646961",
+            "pers_01": "52616e696c",
+        }
+        name_hex = mapping.get(entity.id)
+        return (
+            [Entity(id=entity.id, name=f'{{"value": "{name_hex}"}}')]
+            if name_hex
+            else []
+        )
+
+    mock_opengin_service.fetch_relation.side_effect = fetch_relation_handler
+    mock_opengin_service.get_entities.side_effect = get_entities_handler
+
+    result = await organisation_service.department_history_timeline(
+        department_id=department_id
+    )
+
+    assert len(result) == 2
+    assert result[0]["department_name"] == "Department Two"
+    assert result[0]["period"] == "2021-01-01 - 2022-01-01"
+    assert result[1]["department_name"] == "Department One"
+    assert result[1]["period"] == "2020-01-01 - 2021-01-01"
 
 
 @pytest.mark.asyncio
