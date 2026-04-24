@@ -765,7 +765,8 @@ class OrganisationService:
                             "_department_source_id": current_department_id,
                             "department_name": current_department_name,
                             "ministry_id": ministry_id, "ministry_name": ministry_name,
-                            "minister_id": None, "startTime": current_time, "endTime": person["startTime"]
+                            "minister_id": None, "minister_name": None,
+                            "startTime": current_time, "endTime": person["startTime"]
                         })
                     current_time = person["endTime"]
                 
@@ -774,7 +775,8 @@ class OrganisationService:
                         "_department_source_id": current_department_id,
                         "department_name": current_department_name,
                         "ministry_id": ministry_id, "ministry_name": ministry_name,
-                        "minister_id": None, "startTime": current_time, "endTime": relation_end
+                        "minister_id": None, "minister_name": None,
+                        "startTime": current_time, "endTime": relation_end
                     })
                 
                 enriched.extend(relevant_persons)
@@ -817,6 +819,8 @@ class OrganisationService:
             # 7. Final Sort and clean up
             collapsed.sort(key=lambda x: x["startTime"], reverse=True)
             for entry in collapsed:
+                # Keep raw timestamps until the last step because the gap-filling and
+                # collapse logic depends on overlap comparisons.
                 actual_end = None if entry["endTime"] == FAR_FUTURE else entry["endTime"]
                 entry["period"] = Util.term(entry["startTime"], actual_end, get_full_date=True)
 
