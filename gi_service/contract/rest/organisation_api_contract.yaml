@@ -750,6 +750,84 @@ paths:
         "500":
           description: Server Error
 
+  /v1/entities-by-relation/{parent_id}:
+    post:
+      tags:
+        - Organization
+      summary: Get related entities in the organisation hierarchy.
+      description: Returns a list of entities related to the given parent entity by the given relation (e.g. AS_DEPARTMENT, AS_BODY) and a given date. The relation must be one of the relations supported for hierarchy traversal.
+      operationId: getEntitiesByRelation
+      parameters:
+        - name: parent_id
+          in: path
+          required: true
+          description: ID of the parent entity (e.g. a portfolio ID when relation=AS_DEPARTMENT, or a department ID when relation=AS_BODY).
+          schema:
+            type: string
+        - name: relation
+          in: query
+          required: true
+          description: Relation to traverse.
+          schema:
+            type: string
+            enum:
+              - AS_DEPARTMENT
+              - AS_BODY
+      requestBody:
+        required: true
+        description: This request body corresponds to the date used to retrieve the list of active related entities.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Date"
+      responses:
+        "200":
+          description: Successfully returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  new:
+                    type: integer
+                  entityList:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - name
+                        - id
+                      properties:
+                        name:
+                          type: string
+                        id:
+                          type: string
+                        isNew:
+                          type: boolean
+                        hasData:
+                          type: boolean
+
+              example:
+                total: 2
+                new: 1
+                entityList:
+                  - name: National Institute of Fisheries
+                    id: 2187-27_bod_4
+                    isNew: false
+                    hasData: true
+                  - name: Regional Fisheries Board
+                    id: 2153-12_bod_437
+                    isNew: true
+                    hasData: false
+        "400":
+          description: Bad request (e.g. unsupported relation)
+        "404":
+          description: Not found
+        "500":
+          description: Server Error
+
   /v1/departments-by-portfolio/{portfolio_id}:
     post:
       tags:
