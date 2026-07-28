@@ -288,6 +288,38 @@ async def test_active_portfolio_list_valid_president_id(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("relations", [None, []])
+async def test_active_portfolio_list_valid_president_without_active_relations(
+    organisation_service, mock_opengin_service, relations
+):
+    president_id = "president_123"
+    selected_date = "2021-10-27"
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=president_id, name="mocked_protobuf_name")
+    ]
+    mock_opengin_service.fetch_relation.return_value = relations
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.process_portfolio_item",
+        new_callable=AsyncMock,
+    ) as mock_process_portfolio_item:
+        result = await organisation_service.active_portfolio_list(
+            president_id=president_id, selected_date=selected_date
+        )
+
+    assert result == {
+        "NoOfCabinetMinistries": 0,
+        "NoOfStateMinistries": 0,
+        "newMinistries": 0,
+        "newMinisters": 0,
+        "ministriesUnderPresident": 0,
+        "portfolioList": [],
+    }
+    mock_process_portfolio_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_departments_by_portfolio_id_success(
     organisation_service, mock_opengin_service
 ):

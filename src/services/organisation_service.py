@@ -213,6 +213,20 @@ class OrganisationService:
                 relation=relation
             )
 
+            # A valid president may have no active portfolio relations for the
+            # selected date. Normalize a nullable upstream response and return
+            # the standard empty response without attempting portfolio processing.
+            activePortfolioList = activePortfolioList or []
+            if not activePortfolioList:
+                return {
+                    "NoOfCabinetMinistries": 0,
+                    "NoOfStateMinistries": 0,
+                    "newMinistries": 0,
+                    "newMinisters": 0,
+                    "ministriesUnderPresident": 0,
+                    "portfolioList": [],
+                }
+
             # Process each portfolio item in parallel
             results =await asyncio.gather(*[
                 self.process_portfolio_item(portfolio, president_id, selected_date)
@@ -233,7 +247,7 @@ class OrganisationService:
                 else:
                     successful_portfolios.append(results[i])
             
-            if len(exceptions) == len(results):
+            if results and len(exceptions) == len(results):
                 raise InternalServerError("Failed to process all portfolios")
             
             # Calculate final counts
