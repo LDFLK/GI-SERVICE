@@ -1021,72 +1021,82 @@ components:
           type: string
 
   /v1/organization/{above_id}:
-  post:
-    tags:
-      - Organization
-    summary: Get active list of related entities in the hierarchy one level below.
-    operationId: getEntityList
+    post:
+      tags:
+        - Organization
+      summary: Get active list of related entities in the hierarchy one level below.
+      operationId: getEntityList
 
-    parameters:
-      - name: above_id
-        in: path
-        required: true
-        schema:
-          type: string
-
-    requestBody:
-      required: true
-      content:
-        application/json:
+      parameters:
+        - name: above_id
+          in: path
+          required: true
+          description: Id of the parent node in the hierarchy.
           schema:
-            type: object
-            required:
-              - date
-              - relation
-            properties:
-              date:
-                type: string
-                format: date
-              relation:
-                type: string
-                enum:
-                  - PRESIDENT
-                  - MINISTER
-                  - DEPARTMENT
-                  - BODY
+            type: string
 
-    responses:
-      "200":
-        description: Successfully returned.
+      requestBody:
+        required: true
         content:
           application/json:
             schema:
-              oneOf:
-                - $ref: "#/components/schemas/PresidentResponse"
-                - $ref: "#/components/schemas/MinisterResponse"
-                - $ref: "#/components/schemas/DepartmentResponse"
-                - $ref: "#/components/schemas/BodyResponse"
-              discriminator:
-                propertyName: relation
-                mapping:
-                  PRESIDENT: "#/components/schemas/PresidentResponse"
-                  MINISTER: "#/components/schemas/MinisterResponse"
-                  DEPARTMENT: "#/components/schemas/DepartmentResponse"
-                  BODY: "#/components/schemas/BodyResponse"
+              type: object
+              required:
+                - date
+                - relation
+              properties:
+                date:
+                  type: string
+                  format: date
+                relation:
+                  type: string
+                  enum:
+                    - MINISTER
+                    - DEPARTMENT
+                    - BODY
 
-      "400":
-        description: Bad request
+      responses:
+        "200":
+          description: Successfully returned.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MinisterResponse"
+                  - $ref: "#/components/schemas/DepartmentResponse"
+                  - $ref: "#/components/schemas/BodyResponse"
+                discriminator:
+                  propertyName: relation
+                  mapping:
+                    MINISTER: "#/components/schemas/MinisterResponse"
+                    DEPARTMENT: "#/components/schemas/DepartmentResponse"
+                    BODY: "#/components/schemas/BodyResponse"
 
-      "404":
-        description: Not found
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-      "500":
-        description: Server error
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-  components:
-    schemas:
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-     BaseResponse:
+components:
+  schemas:
+
+    BaseResponse:
       type: object
       required:
         - relation
@@ -1095,18 +1105,9 @@ components:
         relation:
           type: string
           enum:
-            - PRESIDENT
             - MINISTER
             - DEPARTMENT
             - BODY
-
-    PresidentResponse:
-      allOf:
-        - $ref: "#/components/schemas/BaseResponse"
-        - type: object
-          properties:
-            body:
-              $ref: "#/components/schemas/PresidentBody"
 
     MinisterResponse:
       allOf:
@@ -1132,14 +1133,6 @@ components:
             body:
               $ref: "#/components/schemas/BodyBody"
 
-    PresidentBody:
-      type: object
-      properties:
-        presidentList:
-          type: array
-          items:
-            $ref: "#/components/schemas/Entity"
-
     MinisterBody:
       type: object
       properties:
@@ -1155,6 +1148,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Entity"
+	activeMinistries:
+          type: integer
+        newMinistries:
+          type: integer
+        newMinisters:
+          type: integer
+        ministriesUnderPresident:
+          type: integer
 
     BodyBody:
       type: object
@@ -1163,28 +1164,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Portfolio"
-
-        activeMinistries:
-          type: integer
-
-        newMinistries:
-          type: integer
-
-        newMinisters:
-          type: integer
-
-        ministriesUnderPresident:
-          type: integer
+      
 
     Portfolio:
       type: object
       required:
         - id
-        - name
       properties:
         id:
-          type: string
-        name:
           type: string
         isNew:
           type: boolean
@@ -1197,11 +1184,8 @@ components:
       type: object
       required:
         - id
-        - name
       properties:
         id:
-          type: string
-        name:
           type: string
         isPresident:
           type: boolean
@@ -1212,9 +1196,17 @@ components:
       type: object
       required:
         - id
-        - name
       properties:
         id:
           type: string
-        name:
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
           type: string
