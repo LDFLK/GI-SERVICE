@@ -496,6 +496,8 @@ paths:
                 items:
                   type: object
                   properties:
+                    department_name:
+                      type: string
                     ministry_id:
                       type: string
                     ministry_name:
@@ -507,7 +509,14 @@ paths:
                     period:
                       type: string
               example:
-                - ministry_id: "min_01"
+                - department_name: "Department of Treasury Operations"
+                  ministry_id: "min_01"
+                  ministry_name: "Ministry of Finance"
+                  minister_id: "pers_01"
+                  minister_name: "John Doe"
+                  period: "2021 Jan 01 - 2022 Jan 01"
+                - department_name: "Department of Treasury Operations"
+                  ministry_id: "min_01"
                   ministry_name: "Ministry of Finance"
                   minister_id: "pers_01"
                   minister_name: "John Doe"

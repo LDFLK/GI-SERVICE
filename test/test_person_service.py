@@ -159,9 +159,35 @@ async def test_fetch_person_history_internal_error(
     person_service, mock_opengin_service
 ):
     person_id = "person_123"
-    with patch(
-        "src.services.person_service.asyncio.gather",
-        side_effect=Exception("Gather fail"),
+    mock_opengin_service.fetch_relation.side_effect = [
+        [
+            Relation(
+                relatedEntityId="min_1",
+                startTime="2020-01-01T00:00:00Z",
+                endTime="2021-01-01T00:00:00Z",
+            )
+        ],
+        [],
+    ]
+
+    with (
+        patch.object(
+            person_service,
+            "enrich_history_item",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "min_1",
+                "name": "Ministry One",
+                "term": "2020-01-01 - 2021-01-01",
+                "is_president": False,
+                "start_time": "2020-01-01T00:00:00Z",
+                "end_time": "2021-01-01T00:00:00Z",
+            },
+        ),
+        patch(
+            "src.services.person_service.Util.history_sort_key",
+            side_effect=Exception("Sort fail"),
+        ),
     ):
         with pytest.raises(InternalServerError):
             await person_service.fetch_person_history(person_id)

@@ -62,8 +62,14 @@ async def test_get_gazette_data_points_empty(document_service, mock_opengin_serv
 async def test_get_gazette_data_points_internal_server_error(
     document_service, mock_opengin_service
 ):
+    mock_opengin_service.get_entities.side_effect = [
+        [MagicMock(id="org_gazette_1", created="2023-01-15T10:00:00Z")],
+        [],
+    ]
+
     with patch(
-        "src.services.document_service.asyncio.gather", side_effect=Exception("failure")
+        "src.services.document_service.Util.normalize_timestamp",
+        side_effect=Exception("failure"),
     ):
         with pytest.raises(InternalServerError):
             await document_service.get_gazette_data_points()
