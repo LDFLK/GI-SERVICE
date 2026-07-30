@@ -15,7 +15,7 @@ tags:
     description: APIs for data
 
 paths:
-  /v1/all-presidents:
+  /v1/presidents:
     get:
       tags:
         - Organization
@@ -38,54 +38,14 @@ paths:
                 body:
                   - name: Anura Kumara Dissanayake
                     id: 2403-03-01_cit_1
-                    terms:
-                      - startDate:
-                          date: 2024-09-23T00:00:00Z
-                        endDate:
-                          date: ""
-        "500":
-          description: Server Error
-
-  /v1/all-gazettes:
-    get:
-      tags:
-        - Organization
-      summary: Get all published gazettes
-      description: Returns a list of sorted date objects that are related to gazette published.
-      operationId: getGazettes
-      responses:
-        "200":
-          description: Successfully returned
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  body:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                        - gazetteId
-                        - publishedDate
-                      properties:
-                        gazetteId:
-                          type: string
-                        publishedDate:
-                          type: object
-                          required:
-                            - date
-                          properties:
-                            date:
-                              type: string
-              example:
-                body:
-                  - gazetteId: 2411-09
-                    publishedDate:
-                      date: 2024-11-18T00:00:00Z
-                  - gazetteId: 2411-10
-                    publishedDate:
-                      date: 2024-11-18T00:00:00Z
+                    tenureList:
+                      - startDate: 2024-09-23T00:00:00Z
+                        endDate: ""
+                        gazetteList:
+                          - gazetteId: 2411-09
+                            date: 2024-11-18T00:00:00Z
+                          - gazetteId: 2412-03
+                            date: 2024-12-13T00:00:00Z
         "500":
           description: Server Error
 
@@ -725,53 +685,19 @@ paths:
                   body:
                     type: array
                     items:
-                      allOf:
-                        - type: object
-                          allOf:
-                            - type: object
-                              required:
-                                - name
-                                - id
-                              properties:
-                                name:
-                                  type: string
-                                id:
-                                  type: string
-                        - type: object
-                          required:
-                            - terms
-                          properties:
-                            terms:
-                              type: array
-                              items:
-                                type: object
-                                required:
-                                  - startDate
-                                  - endDate
-                                properties:
-                                  startDate:
-                                    type: object
-                                    required:
-                                      - date
-                                    properties:
-                                      date:
-                                        type: string
-                                  endDate:
-                                    type: object
-                                    required:
-                                      - date
-                                    properties:
-                                      date:
-                                        type: string
+                      $ref: "#/components/schemas/President"
               example:
                 body:
                   - name: Anura Kumara Dissanayake
                     id: 2403-03-01_cit_1
-                    terms:
-                      - startDate:
-                          date: 2024-09-23T00:00:00Z
-                        endDate:
-                          date: ""
+                    tenureList:
+                      - startDate: 2024-09-23T00:00:00Z
+                        endDate: ""
+                        gazetteList:
+                          - gazetteId: 2411-09
+                            date: 2024-11-18T00:00:00Z
+                          - gazetteId: 2412-03
+                            date: 2024-12-13T00:00:00Z
         "500":
           description: Server Error
 
@@ -922,66 +848,43 @@ components:
         date:
           type: string
 
-    Term:
-      type: object
-      required:
-        - startDate
-        - endDate
-      properties:
-        startDate:
-          type: object
-          required:
-            - date
-          properties:
-            date:
-              type: string
-        endDate:
-          type: object
-          required:
-            - date
-          properties:
-            date:
-              type: string
-
     President:
       allOf:
         - type: object
           allOf:
-            - type: object
-              required:
-                - name
-                - id
-              properties:
-                name:
-                  type: string
-                id:
-                  type: string
+            - $ref: "#/components/schemas/Person"
         - type: object
           required:
-            - terms
+            - tenureList
           properties:
-            terms:
+            tenureList:
               type: array
               items:
-                type: object
-                required:
-                  - startDate
-                  - endDate
-                properties:
-                  startDate:
-                    type: object
-                    required:
-                      - date
-                    properties:
-                      date:
-                        type: string
-                  endDate:
-                    type: object
-                    required:
-                      - date
-                    properties:
-                      date:
-                        type: string
+                $ref: "#/components/schemas/Tenure"
+
+    Tenure:
+      type: object
+      required:
+        - startDate
+        - endDate
+        - gazetteList
+      properties:
+        startDate:
+          type: string
+        endDate:
+          type: string
+        gazetteList:
+          type: array
+          items:
+            type: object
+            required:
+              - gazetteId
+              - date
+            properties:
+              gazetteId:
+                type: string
+              date:
+                type: string
 
     Person:
       type: object
@@ -993,22 +896,6 @@ components:
           type: string
         id:
           type: string
-
-    Gazette:
-      type: object
-      required:
-        - gazetteId
-        - publishedDate
-      properties:
-        gazetteId:
-          type: string
-        publishedDate:
-          type: object
-          required:
-            - date
-          properties:
-            date:
-              type: string
 
     Portfolio:
       type: object
