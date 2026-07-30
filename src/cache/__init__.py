@@ -17,12 +17,14 @@ from src.cache.ttl import (
     apply_jitter,
     choose_ttl,
 )
+from src.cache.singleflight import SingleFlight
 
 __all__ = [
     "CacheBackend",
     "NullCache",
     "InMemoryCache",
     "RedisCache",
+    "SingleFlight",
     "DEFAULT_KEY_PREFIX",
     "entity_key",
     "relation_key",
