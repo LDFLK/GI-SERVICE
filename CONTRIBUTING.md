@@ -51,6 +51,28 @@ Fixes #123
 - Add unit tests directly inside the `tests/` directory and organize test files in a clear, maintainable structure.
 - Ensure all test cases are correct, validated, and cover the intended functionality thoroughly.
 - Run all tests locally to confirm they pass before committing, and update or add tests as needed for any new changes.
+- This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. All contributions must pass ruff checks before being merged.
+
+### Code Style
+
+We use **Ruff** as our linter and formatter (configured in [`ruff.toml`](ruff.toml)).
+
+**Check for lint errors:**
+```bash
+ruff check .
+```
+
+**Auto-fix lint errors (where possible):**
+```bash
+ruff check . --fix
+```
+
+**Format your code:**
+```bash
+ruff format .
+```
+
+> Run both `ruff check` and `ruff format` before every commit. The CI pipeline enforces these checks automatically.
 
 ### Testing
 
@@ -67,8 +89,10 @@ pytest
 1. Ensure your code follows the project's coding standards
 2. Update documentation if needed
 3. Add or update tests as appropriate
-4. Run the full test suite and ensure it passes
-5. Push your branch and create a Pull Request
+4. Run the full test suite and ensure it passes: `pytest`
+5. Run the linter and ensure no errors: `ruff check .`
+6. Run the formatter: `ruff format .`
+7. Push your branch and create a Pull Request
 
 ### Pull Request Guidelines
 

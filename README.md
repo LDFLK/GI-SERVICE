@@ -97,6 +97,19 @@ flowchart LR
 
    The API will be available at: `http://localhost:8000`
 
+5. **Run Tests & Linting**
+
+   ```bash
+   # Run tests
+   pytest
+
+   # Check for lint errors
+   ruff check .
+
+   # Format code
+   ruff format .
+   ```
+
 ### Method 2 (Docker)
 
    ```bash
