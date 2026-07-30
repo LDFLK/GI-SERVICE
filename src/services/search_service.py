@@ -9,7 +9,15 @@ from src.utils import Util
 logger = logging.getLogger(__name__)
 
 # Valid entity types for filtering
-VALID_ENTITY_TYPES = {KindMinorEnum.DEPARTMENT.value, KindMinorEnum.STATE_MINISTER.value, KindMinorEnum.CABINET_MINISTER.value, "dataset", "person"}
+VALID_ENTITY_TYPES = {
+    KindMinorEnum.DEPARTMENT.value,
+    KindMinorEnum.STATE_MINISTER.value,
+    KindMinorEnum.CABINET_MINISTER.value,
+    "dataset",
+    "person",
+}
+
+
 class SearchService:
     """
     This service handles unified search across departments, ministers, datasets, and persons.
@@ -20,7 +28,13 @@ class SearchService:
         self.opengin_service = opengin_service
 
     # Unified search
-    async def unified_search(self, query: str, as_of_date: str, limit: Optional[int] = None, entity_types: Optional[List[str]] = None) -> SearchResponse:
+    async def unified_search(
+        self,
+        query: str,
+        as_of_date: str,
+        limit: Optional[int] = None,
+        entity_types: Optional[List[str]] = None,
+    ) -> SearchResponse:
         """
         Main entry point for unified search across all entity types.
 
@@ -50,11 +64,31 @@ class SearchService:
         try:
             # Entity type configuration: maps entity type to (major, minor, display_name)
             entity_config = {
-                KindMinorEnum.DEPARTMENT.value: (KindMajorEnum.ORGANISATION.value, KindMinorEnum.DEPARTMENT.value, "departments"),
-                KindMinorEnum.STATE_MINISTER.value: (KindMajorEnum.ORGANISATION.value, KindMinorEnum.STATE_MINISTER.value, "stateMinisters"),
-                KindMinorEnum.CABINET_MINISTER.value: (KindMajorEnum.ORGANISATION.value, KindMinorEnum.CABINET_MINISTER.value, "cabinetMinisters"),
-                "dataset": (KindMajorEnum.DATASET.value, KindMinorEnum.TABULAR.value, "datasets"),
-                "person": (KindMajorEnum.PERSON.value, KindMinorEnum.CITIZEN.value, "persons"),
+                KindMinorEnum.DEPARTMENT.value: (
+                    KindMajorEnum.ORGANISATION.value,
+                    KindMinorEnum.DEPARTMENT.value,
+                    "departments",
+                ),
+                KindMinorEnum.STATE_MINISTER.value: (
+                    KindMajorEnum.ORGANISATION.value,
+                    KindMinorEnum.STATE_MINISTER.value,
+                    "stateMinisters",
+                ),
+                KindMinorEnum.CABINET_MINISTER.value: (
+                    KindMajorEnum.ORGANISATION.value,
+                    KindMinorEnum.CABINET_MINISTER.value,
+                    "cabinetMinisters",
+                ),
+                "dataset": (
+                    KindMajorEnum.DATASET.value,
+                    KindMinorEnum.TABULAR.value,
+                    "datasets",
+                ),
+                "person": (
+                    KindMajorEnum.PERSON.value,
+                    KindMinorEnum.CITIZEN.value,
+                    "persons",
+                ),
             }
 
             # Build search tasks dynamically based on requested types
@@ -64,7 +98,11 @@ class SearchService:
             for entity_type in types_to_search:
                 if entity_type in entity_config:
                     major, minor, display_name = entity_config[entity_type]
-                    search_tasks.append(self.entity_specific_search(major, minor, query, as_of_date, limit))
+                    search_tasks.append(
+                        self.entity_specific_search(
+                            major, minor, query, as_of_date, limit
+                        )
+                    )
                     search_type_names.append(display_name)
 
             # Run selected searches in parallel
@@ -92,7 +130,7 @@ class SearchService:
                 query=query,
                 as_of_date=as_of_date,
                 total=len(search_results),
-                results=search_results
+                results=search_results,
             )
 
         except BadRequestError:
@@ -102,10 +140,17 @@ class SearchService:
             raise InternalServerError("An unexpected error occurred") from e
 
     # Entity specific search
-    async def entity_specific_search(self, major: str, minor: str, query: str, as_of_date: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def entity_specific_search(
+        self,
+        major: str,
+        minor: str,
+        query: str,
+        as_of_date: str,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Generic search function that supports departments, ministers, datasets, and persons.
-        
+
         Determines the search type based on major/minor parameters and executes
         the appropriate search logic with type-specific result formatting.
 
@@ -121,7 +166,7 @@ class SearchService:
         """
 
         try:
-            entity = Entity(name=query,kind=Kind(major=major, minor=minor))
+            entity = Entity(name=query, kind=Kind(major=major, minor=minor))
             all_entities = await self.opengin_service.get_entities(entity=entity)
 
             search_year = Util.extract_year(as_of_date)
@@ -147,14 +192,16 @@ class SearchService:
                         display_name = Util.get_name_without_year(name)
                         display_name = Util.to_title_case(display_name)
 
-                    matching.append({
-                        "type": entity_type,
-                        "id": item.id,
-                        "name": display_name,
-                        "created": item.created,
-                        "terminated": item.terminated if item.terminated else "",
-                        "match_score": Util.calculate_match_score(query, name)
-                    })
+                    matching.append(
+                        {
+                            "type": entity_type,
+                            "id": item.id,
+                            "name": display_name,
+                            "created": item.created,
+                            "terminated": item.terminated if item.terminated else "",
+                            "match_score": Util.calculate_match_score(query, name),
+                        }
+                    )
 
             # Sort by match score (highest first)
             matching.sort(key=lambda x: x.get("match_score", 0), reverse=True)
@@ -188,7 +235,9 @@ class SearchService:
 
         if not valid_requested:
             # If all requested types are invalid, return all valid types
-            logger.warning(f"Invalid entity types requested: {entity_types}. Searching all types.")
+            logger.warning(
+                f"Invalid entity types requested: {entity_types}. Searching all types."
+            )
             return VALID_ENTITY_TYPES.copy()
 
         return valid_requested
@@ -206,11 +255,26 @@ class SearchService:
         """
         # Map major/minor combinations to entity types
         type_mapping = {
-            (KindMajorEnum.ORGANISATION.value.lower(), KindMinorEnum.DEPARTMENT.value.lower()): KindMinorEnum.DEPARTMENT.value,
-            (KindMajorEnum.ORGANISATION.value.lower(), KindMinorEnum.STATE_MINISTER.value.lower()): KindMinorEnum.STATE_MINISTER.value,
-            (KindMajorEnum.ORGANISATION.value.lower(), KindMinorEnum.CABINET_MINISTER.value.lower()): KindMinorEnum.CABINET_MINISTER.value,
-            (KindMajorEnum.DATASET.value.lower(), KindMinorEnum.TABULAR.value.lower()): "dataset",
-            (KindMajorEnum.PERSON.value.lower(), KindMinorEnum.CITIZEN.value.lower()): "person",
+            (
+                KindMajorEnum.ORGANISATION.value.lower(),
+                KindMinorEnum.DEPARTMENT.value.lower(),
+            ): KindMinorEnum.DEPARTMENT.value,
+            (
+                KindMajorEnum.ORGANISATION.value.lower(),
+                KindMinorEnum.STATE_MINISTER.value.lower(),
+            ): KindMinorEnum.STATE_MINISTER.value,
+            (
+                KindMajorEnum.ORGANISATION.value.lower(),
+                KindMinorEnum.CABINET_MINISTER.value.lower(),
+            ): KindMinorEnum.CABINET_MINISTER.value,
+            (
+                KindMajorEnum.DATASET.value.lower(),
+                KindMinorEnum.TABULAR.value.lower(),
+            ): "dataset",
+            (
+                KindMajorEnum.PERSON.value.lower(),
+                KindMinorEnum.CITIZEN.value.lower(),
+            ): "person",
         }
 
         key = (major.lower(), minor.lower())
@@ -220,4 +284,3 @@ class SearchService:
             logger.warning(f"Unknown entity type for major={major}, minor={minor}")
 
         return entity_type
-

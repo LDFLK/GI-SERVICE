@@ -3,7 +3,13 @@ from aiohttp import ClientSession
 from datetime import datetime
 
 import logging
-from src.enums import EntityIdEnum, KindMajorEnum, KindMinorEnum, RelationDirectionEnum, RelationNameEnum
+from src.enums import (
+    EntityIdEnum,
+    KindMajorEnum,
+    KindMinorEnum,
+    RelationDirectionEnum,
+    RelationNameEnum,
+)
 from src.exception import BadRequestError, InternalServerError, NotFoundError
 from src.models import Entity, Kind, PersonResponse, Relation
 from src.utils import Util, http_client
@@ -80,11 +86,17 @@ class PersonService:
 
             ministry_relations_task = self.opengin_service.fetch_relation(
                 entityId=person_id,
-                relation=Relation(name=RelationNameEnum.AS_APPOINTED.value, direction=RelationDirectionEnum.INCOMING.value),
+                relation=Relation(
+                    name=RelationNameEnum.AS_APPOINTED.value,
+                    direction=RelationDirectionEnum.INCOMING.value,
+                ),
             )
             president_relations_task = self.opengin_service.fetch_relation(
                 entityId=person_id,
-                relation=Relation(name=RelationNameEnum.AS_PRESIDENT.value, direction=RelationDirectionEnum.INCOMING.value),
+                relation=Relation(
+                    name=RelationNameEnum.AS_PRESIDENT.value,
+                    direction=RelationDirectionEnum.INCOMING.value,
+                ),
             )
 
             results_relations = await asyncio.gather(
@@ -180,7 +192,9 @@ class PersonService:
             if not person_id or not person_id.strip():
                 raise BadRequestError("Person ID is required")
 
-            person_data_res = await self.opengin_service.get_entities(Entity(id=person_id))
+            person_data_res = await self.opengin_service.get_entities(
+                Entity(id=person_id)
+            )
 
             try:
                 encoded_person_profile_data = await self.opengin_service.get_attributes(
@@ -188,8 +202,12 @@ class PersonService:
                     dataset_name=f"{person_id}_profile",
                 )
             except (BadRequestError, NotFoundError, InternalServerError) as e:
-                logger.info(f"Person profile not available for person {person_id}, falling back to name only. Reason: {type(e).__name__}")
-                person_name = Util.decode_protobuf_attribute_name(person_data_res[0].name)
+                logger.info(
+                    f"Person profile not available for person {person_id}, falling back to name only. Reason: {type(e).__name__}"
+                )
+                person_name = Util.decode_protobuf_attribute_name(
+                    person_data_res[0].name
+                )
                 return PersonResponse(name=person_name)
 
             formatted_person_profile_data = Util.transform_data_for_chart(
@@ -199,7 +217,7 @@ class PersonService:
 
             if not rows:
                 raise NotFoundError(f"Profile data not found for person {person_id}")
-            
+
             row = rows[0]
 
             columns = formatted_person_profile_data["data"]["columns"]
@@ -215,7 +233,7 @@ class PersonService:
                 try:
                     dob = datetime.fromisoformat(dob_str).date()
                 except ValueError:
-                    dob = None  
+                    dob = None
             else:
                 dob = None
 
@@ -223,7 +241,7 @@ class PersonService:
             person_profile_res = PersonResponse(**person_profile_dict, age=age)
 
             return person_profile_res
-            
+
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
@@ -233,10 +251,10 @@ class PersonService:
     async def fetch_all_presidents(self):
         """
         Fetches all presidents and their terms.
-        
+
         Returns:
             dict: A dictionary containing a 'presidents' key with a list of presidents with their terms, and gazettes published during those terms
-        
+
         Output Format:
             {
                 "presidents": [
@@ -266,29 +284,37 @@ class PersonService:
             )
 
             organization_gazettes_task = self.opengin_service.get_entities(
-                Entity(kind=Kind(
-                    major=KindMajorEnum.DOCUMENT.value, 
-                    minor=KindMinorEnum.EXTGZT_ORGANISATION.value
-                ))
+                Entity(
+                    kind=Kind(
+                        major=KindMajorEnum.DOCUMENT.value,
+                        minor=KindMinorEnum.EXTGZT_ORGANISATION.value,
+                    )
+                )
             )
             person_gazettes_task = self.opengin_service.get_entities(
-                Entity(kind=Kind(
-                    major=KindMajorEnum.DOCUMENT.value, 
-                    minor=KindMinorEnum.EXTGZT_PERSON.value
-                ))
+                Entity(
+                    kind=Kind(
+                        major=KindMajorEnum.DOCUMENT.value,
+                        minor=KindMinorEnum.EXTGZT_PERSON.value,
+                    )
+                )
             )
-            
+
             results = await asyncio.gather(
-                president_relations_task, 
-                organization_gazettes_task, 
+                president_relations_task,
+                organization_gazettes_task,
                 person_gazettes_task,
-                return_exceptions=True
+                return_exceptions=True,
             )
             president_relations, organization_gazettes, person_gazettes = results
-            
+
             if isinstance(president_relations, Exception):
-                logger.error(f"Failed to fetch president relations: {president_relations}")
-                raise InternalServerError("An unexpected error occurred while fetching president relations")
+                logger.error(
+                    f"Failed to fetch president relations: {president_relations}"
+                )
+                raise InternalServerError(
+                    "An unexpected error occurred while fetching president relations"
+                )
 
             if not president_relations:
                 return {"presidents": []}
@@ -298,35 +324,36 @@ class PersonService:
             all_terms = []
             for relation in president_relations:
                 president_id = relation.relatedEntityId
-                
-                start_date = relation.startTime.split('T')[0]
-                end_date = relation.endTime.split('T')[0] if relation.endTime else None
-                
-                term = {
-                    "start": start_date,
-                    "end": end_date,
-                    "gazettes_published": []
-                }
-                
+
+                start_date = relation.startTime.split("T")[0]
+                end_date = relation.endTime.split("T")[0] if relation.endTime else None
+
+                term = {"start": start_date, "end": end_date, "gazettes_published": []}
+
                 if president_id not in presidents_map:
                     presidents_map[president_id] = {
                         "id": president_id,
                         "name": "Unknown",
-                        "terms": []
+                        "terms": [],
                     }
-                    
+
                 presidents_map[president_id]["terms"].append(term)
-                
-                all_terms.append({
-                    "start": term["start"],
-                    "end": term.get("end") or "9999-12-31", # far future if ongoing
-                    "term_data": term # Reference to the term dictionary
-                })
+
+                all_terms.append(
+                    {
+                        "start": term["start"],
+                        "end": term.get("end") or "9999-12-31",  # far future if ongoing
+                        "term_data": term,  # Reference to the term dictionary
+                    }
+                )
 
             unique_president_ids = list(presidents_map.keys())
-            
+
             # Fetch president details - name
-            tasks = [self.opengin_service.get_entities(Entity(id=president_id)) for president_id in unique_president_ids]
+            tasks = [
+                self.opengin_service.get_entities(Entity(id=president_id))
+                for president_id in unique_president_ids
+            ]
             entities_results = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Update the map with names
@@ -349,10 +376,10 @@ class PersonService:
                 date = gazette.created.split("T")[0]
                 try:
                     gazette_id = Util.decode_protobuf_attribute_name(gazette.name)
-                except Exception as e:
-                    logger.warning(f"Could not decode gazette name")
+                except Exception:
+                    logger.warning("Could not decode gazette name")
                     gazette_id = "Unknown"
-                    
+
                 if date not in gazettes_by_date:
                     gazettes_by_date[date] = []
                 if gazette_id not in gazettes_by_date[date]:
@@ -368,16 +395,21 @@ class PersonService:
 
             for gazette_date in sorted_dates:
                 # Skip terms that ended before this date
-                while term_index < number_of_terms and all_terms[term_index]["end"] <= gazette_date:
+                while (
+                    term_index < number_of_terms
+                    and all_terms[term_index]["end"] <= gazette_date
+                ):
                     term_index += 1
-                
-                if term_index < number_of_terms and all_terms[term_index]["start"] <= gazette_date:
+
+                if (
+                    term_index < number_of_terms
+                    and all_terms[term_index]["start"] <= gazette_date
+                ):
                     term_dict = all_terms[term_index]["term_data"]
                     # Add formatted entry directly to the final list
-                    term_dict["gazettes_published"].append({
-                        "date": gazette_date,
-                        "ids": gazettes_by_date[gazette_date]
-                    })
+                    term_dict["gazettes_published"].append(
+                        {"date": gazette_date, "ids": gazettes_by_date[gazette_date]}
+                    )
 
             # Sort the presidents by their latest term's start date in descending order
             def get_latest_start(president_data):

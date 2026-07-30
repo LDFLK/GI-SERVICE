@@ -12,25 +12,27 @@ from src.middleware import ThrottlingMiddleware
 from src.utils import http_client
 from contextlib import asynccontextmanager
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await http_client.start()
     yield
     await http_client.close()
 
+
 app = FastAPI(
-    title="GI - Service",     
+    title="GI - Service",
     description="API Adapter to the OpenGIn (Open General Information Network)",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
-allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
+allowed_origins = [
+    origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()
+]
 if not allowed_origins:
     raise ValueError("ALLOWED_ORIGINS is not configured")
 
-
-   
 
 app.add_middleware(
     CORSMiddleware,

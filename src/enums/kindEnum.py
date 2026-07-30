@@ -1,11 +1,13 @@
 from enum import Enum
 
+
 class KindMajorEnum(Enum):
-    ORGANISATION = "Organisation" 
+    ORGANISATION = "Organisation"
     PERSON = "Person"
     CATEGORY = "Category"
     DATASET = "Dataset"
     DOCUMENT = "Document"
+
 
 class KindMinorEnum(Enum):
     DEPARTMENT = "department"

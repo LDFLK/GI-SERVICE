@@ -1,6 +1,7 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from src.exception import InternalServerError, NotFoundError
+
 
 @pytest.mark.asyncio
 async def test_get_gazette_data_points_success(document_service, mock_opengin_service):
@@ -38,12 +39,18 @@ async def test_get_gazette_data_points_success(document_service, mock_opengin_se
     assert len(result["data"][0]["values"]) == 12
     assert result["data"][0]["values"][0] == 2
     assert result["data"][0]["values"][1] == 1
-    assert all(count == 0 for i, count in enumerate(result["data"][0]["values"]) if i not in [0, 1])
+    assert all(
+        count == 0
+        for i, count in enumerate(result["data"][0]["values"])
+        if i not in [0, 1]
+    )
 
     assert result["data"][1]["year"] == 2024
     assert len(result["data"][1]["values"]) == 12
     assert result["data"][1]["values"][4] == 2
-    assert all(count == 0 for i, count in enumerate(result["data"][1]["values"]) if i != 4)
+    assert all(
+        count == 0 for i, count in enumerate(result["data"][1]["values"]) if i != 4
+    )
 
     # Verify sorting
     assert [y["year"] for y in result["data"]] == [2023, 2024]
@@ -68,15 +75,18 @@ async def test_get_gazette_data_points_internal_server_error(
         with pytest.raises(InternalServerError):
             await document_service.get_gazette_data_points()
 
+
 @pytest.mark.asyncio
-async def test_get_gazette_data_points_malformed_object(document_service, mock_opengin_service):
+async def test_get_gazette_data_points_malformed_object(
+    document_service, mock_opengin_service
+):
     # good gazette
     good_gazette = MagicMock()
     good_gazette.id = "good-idx"
     good_gazette.created = "2023-01-15T10:00:00Z"
 
     # malformed gazette
-    bad_gazette = MagicMock(spec=[]) # No attributes
+    bad_gazette = MagicMock(spec=[])  # No attributes
 
     mock_opengin_service.get_entities.side_effect = [
         [good_gazette],
@@ -94,7 +104,9 @@ async def test_get_gazette_data_points_malformed_object(document_service, mock_o
 
 
 @pytest.mark.asyncio
-async def test_get_gazette_data_points_robustness(document_service, mock_opengin_service):
+async def test_get_gazette_data_points_robustness(
+    document_service, mock_opengin_service
+):
     # 1. Valid gazette
     v1 = MagicMock()
     v1.id = "valid-1"
@@ -133,10 +145,9 @@ async def test_get_gazette_data_points_robustness(document_service, mock_opengin
     # Result should contain 2023 (from v1) and 2024 (from v6)
     assert "data" in result
     assert len(result["data"]) == 2
-    
-    assert result["data"][0]["year"] == 2023
-    assert result["data"][0]["values"][0] == 1 # Jan
-    
-    assert result["data"][1]["year"] == 2024
-    assert result["data"][1]["values"][4] == 1 # May
 
+    assert result["data"][0]["year"] == 2023
+    assert result["data"][0]["values"][0] == 1  # Jan
+
+    assert result["data"][1]["year"] == 2024
+    assert result["data"][1]["values"][4] == 1  # May

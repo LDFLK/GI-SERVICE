@@ -1,13 +1,14 @@
 from pydantic import BaseModel
 from typing import List
 
+
 class SearchResult(BaseModel):
     """
     Individual search result item.
 
     Represents a single entity from the search results, which can be
     a department, stateMinister, cabinetMinister, dataset, or person.
-    
+
     All entity types now share a consistent structure with:
     - type: Entity type identifier
     - id: Unique entity identifier
@@ -16,12 +17,16 @@ class SearchResult(BaseModel):
     - terminated: Termination/end date (ISO format or empty string if still active)
     - match_score: Relevance score (0.0 to 1.0)
     """
-    type: str  # "department", "stateMinister", "cabinetMinister", "dataset", or "person"
+
+    type: (
+        str  # "department", "stateMinister", "cabinetMinister", "dataset", or "person"
+    )
     id: str
     name: str
-    created: str  
-    terminated: str  
+    created: str
+    terminated: str
     match_score: float = 0.0
+
 
 class SearchResponse(BaseModel):
     """
@@ -30,6 +35,7 @@ class SearchResponse(BaseModel):
     Contains the search query, date context, and list of mixed results
     from all entity types sorted by relevance.
     """
+
     query: str
     as_of_date: str
     total: int

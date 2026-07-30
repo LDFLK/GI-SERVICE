@@ -910,7 +910,9 @@ async def test_fetch_and_map_relations_with_errors(
 @pytest.mark.asyncio
 async def test_fetch_cabinet_flow_too_many_dates(organisation_service):
     president_id = "pres1"
-    dates = [f"2024-09-{day:02d}" for day in range(1, 12)]  # 11 dates; max allowed is 10
+    dates = [
+        f"2024-09-{day:02d}" for day in range(1, 12)
+    ]  # 11 dates; max allowed is 10
 
     with pytest.raises(BadRequestError):
         await organisation_service.fetch_cabinet_flow(president_id, dates)

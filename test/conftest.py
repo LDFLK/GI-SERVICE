@@ -2,8 +2,15 @@ import pytest
 from aiohttp import ClientError
 from unittest.mock import patch, PropertyMock, MagicMock
 from unittest.mock import AsyncMock
-from src.services import DataService, DocumentService, OpenGINService, OrganisationService, PersonService
+from src.services import (
+    DataService,
+    DocumentService,
+    OpenGINService,
+    OrganisationService,
+    PersonService,
+)
 from src.utils import HTTPClient, Util
+
 
 # MockResponse class to simulate aiohttp responses
 class MockResponse:
@@ -24,14 +31,16 @@ class MockResponse:
     async def __aexit__(self, exc_type, exc, tb):
         pass
 
+
 # Fixture for OpenGINService tests
 @pytest.fixture
 def mock_session():
     """Fixture that provides a mocked session and patches HTTPClient"""
-    session = MagicMock() 
-    with patch.object(HTTPClient, 'session', new_callable=PropertyMock) as mock_prop:
+    session = MagicMock()
+    with patch.object(HTTPClient, "session", new_callable=PropertyMock) as mock_prop:
         mock_prop.return_value = session
         yield session
+
 
 @pytest.fixture
 def mock_service():
@@ -44,15 +53,18 @@ def mock_service():
 def mock_opengin_service():
     return AsyncMock(spec=OpenGINService)
 
+
 @pytest.fixture
 def organisation_service(mock_opengin_service):
     """OrganisationService fixture with mocked OpenGINService"""
     return OrganisationService(mock_opengin_service)
 
+
 # Fixtures for Util functions tests
 @pytest.fixture
 def util():
     return Util()
+
 
 # Fixtures for data service tests
 @pytest.fixture

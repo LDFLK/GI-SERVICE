@@ -13,7 +13,9 @@ def test_attribute_filter_record_defaults_operator_to_eq():
 def test_attribute_filter_records_serializes_multiple_filters():
     filters = AttributeFilterRecords(
         records=[
-            AttributeFilterRecord(field_name="status", operator="neq", value="inactive"),
+            AttributeFilterRecord(
+                field_name="status", operator="neq", value="inactive"
+            ),
             AttributeFilterRecord(field_name="name", operator="contains", value="john"),
         ]
     )
