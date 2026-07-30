@@ -199,12 +199,33 @@ class OrganisationService:
             raise BadRequestError("Selected date is required")
         
         try:
+            try:
+                await self.opengin_service.get_entities(
+                    entity=Entity(id=president_id)
+                )
+            except NotFoundError as e:
+                raise NotFoundError("President not found for the given ID") from e
+
             # First retrieve the relation list of the active portfolios under given president and given date  
             relation = Relation(name=RelationNameEnum.AS_MINISTER.value,activeAt=Util.normalize_timestamp(selected_date),direction=RelationDirectionEnum.OUTGOING.value)   
             activePortfolioList = await self.opengin_service.fetch_relation(
                 entityId=president_id,
                 relation=relation
             )
+
+            # A valid president may have no active portfolio relations for the
+            # selected date. Normalize a nullable upstream response and return
+            # the standard empty response without attempting portfolio processing.
+            activePortfolioList = activePortfolioList or []
+            if not activePortfolioList:
+                return {
+                    "NoOfCabinetMinistries": 0,
+                    "NoOfStateMinistries": 0,
+                    "newMinistries": 0,
+                    "newMinisters": 0,
+                    "ministriesUnderPresident": 0,
+                    "portfolioList": [],
+                }
 
             # Process each portfolio item in parallel
             results =await asyncio.gather(*[
@@ -226,7 +247,7 @@ class OrganisationService:
                 else:
                     successful_portfolios.append(results[i])
             
-            if len(exceptions) == len(results):
+            if results and len(exceptions) == len(results):
                 raise InternalServerError("Failed to process all portfolios")
             
             # Calculate final counts

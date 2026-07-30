@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from src.enums import EntityIdEnum, RelationDirectionEnum, RelationNameEnum
-from src.exception import BadRequestError, InternalServerError
+from src.exception import BadRequestError, InternalServerError, NotFoundError
 from src.models import Entity, Relation
 from src.utils import Util
 
@@ -194,6 +194,129 @@ async def test_enrich_department_item_not_new(
     mock_opengin_service.get_entities.assert_called_once_with(
         entity=Entity(id=department_relation.relatedEntityId)
     )
+
+
+@pytest.mark.asyncio
+async def test_active_portfolio_list_invalid_president_id(
+    organisation_service, mock_opengin_service
+):
+    president_id = "invalid_president_123"
+    selected_date = "2021-10-27"
+
+    mock_opengin_service.get_entities.side_effect = NotFoundError("President not found")
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.active_portfolio_list(
+            president_id=president_id, selected_date=selected_date
+        )
+
+    mock_opengin_service.get_entities.assert_called_once_with(
+        entity=Entity(id=president_id)
+    )
+
+
+@pytest.mark.asyncio
+async def test_active_portfolio_list_valid_president_id(
+    organisation_service, mock_opengin_service
+):
+    president_id = "president_123"
+    selected_date = "2021-10-27"
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=president_id, name="mocked_protobuf_name")
+    ]
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(
+            id="portfolio_relation_123",
+            relatedEntityId="portfolio_123",
+            name=RelationNameEnum.AS_MINISTER.value,
+            startTime="2020-08-09T00:00:00Z",
+            endTime="2022-03-08T00:00:00Z",
+            direction=RelationDirectionEnum.OUTGOING.value,
+        )
+    ]
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.process_portfolio_item",
+        new_callable=AsyncMock,
+    ) as mock_process_portfolio_item:
+        mock_process_portfolio_item.return_value = {
+            "id": "portfolio_123",
+            "name": "Portfolio X",
+            "type": "cabinetMinister",
+            "isNew": False,
+            "ministers": [],
+        }
+
+        result = await organisation_service.active_portfolio_list(
+            president_id=president_id, selected_date=selected_date
+        )
+
+    assert result == {
+        "NoOfCabinetMinistries": 1,
+        "NoOfStateMinistries": 0,
+        "newMinistries": 0,
+        "newMinisters": 0,
+        "ministriesUnderPresident": 0,
+        "portfolioList": [
+            {
+                "id": "portfolio_123",
+                "name": "Portfolio X",
+                "type": "cabinetMinister",
+                "isNew": False,
+                "ministers": [],
+            }
+        ],
+    }
+
+    mock_opengin_service.get_entities.assert_called_once_with(
+        entity=Entity(id=president_id)
+    )
+    mock_opengin_service.fetch_relation.assert_called_once_with(
+        entityId=president_id,
+        relation=Relation(
+            name=RelationNameEnum.AS_MINISTER.value,
+            activeAt=f"{selected_date}T00:00:00Z",
+            direction=RelationDirectionEnum.OUTGOING.value,
+        ),
+    )
+    mock_process_portfolio_item.assert_called_once_with(
+        mock_opengin_service.fetch_relation.return_value[0],
+        president_id,
+        selected_date,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("relations", [None, []])
+async def test_active_portfolio_list_valid_president_without_active_relations(
+    organisation_service, mock_opengin_service, relations
+):
+    president_id = "president_123"
+    selected_date = "2021-10-27"
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=president_id, name="mocked_protobuf_name")
+    ]
+    mock_opengin_service.fetch_relation.return_value = relations
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.process_portfolio_item",
+        new_callable=AsyncMock,
+    ) as mock_process_portfolio_item:
+        result = await organisation_service.active_portfolio_list(
+            president_id=president_id, selected_date=selected_date
+        )
+
+    assert result == {
+        "NoOfCabinetMinistries": 0,
+        "NoOfStateMinistries": 0,
+        "newMinistries": 0,
+        "newMinisters": 0,
+        "ministriesUnderPresident": 0,
+        "portfolioList": [],
+    }
+    mock_process_portfolio_item.assert_not_awaited()
 
 
 @pytest.mark.asyncio

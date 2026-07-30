@@ -119,6 +119,24 @@ async def test_fetch_relation_success(mock_service, mock_session):
     assert result == [Relation(id="relation_123",relationName=RelationNameEnum.AS_MINISTER.value,direction=RelationDirectionEnum.OUTGOING.value)]
     mock_session.post.assert_called_once()
 
+@pytest.mark.asyncio
+async def test_fetch_relation_none_response_returns_empty_list(
+    mock_service, mock_session
+):
+    entity_id = "entity_123"
+    mock_session.post.return_value = MockResponse(None)
+
+    result = await mock_service.fetch_relation(
+        entity_id,
+        relation=Relation(
+            name=RelationNameEnum.AS_MINISTER.value,
+            direction=RelationDirectionEnum.OUTGOING.value,
+        ),
+    )
+
+    assert result == []
+    mock_session.post.assert_called_once()
+
 @pytest.mark.asyncio 
 async def test_fetch_relation_empty_entity_id(mock_service, mock_session):
     entity_id = ""
@@ -372,4 +390,3 @@ async def test_get_attributes_bad_request(mock_service, mock_session):
 
     with pytest.raises(BadRequestError, match="Bad request"):
         await mock_service.get_attributes("category_123", "dataset_abc")
-

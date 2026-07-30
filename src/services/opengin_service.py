@@ -95,6 +95,8 @@ class OpenGINService:
                     raise BadRequestError(f"Read API Error: Bad request for id {entityId}")
                 response.raise_for_status()
                 data = await response.json()
+                if data is None:
+                    return []
                 result = [Relation.model_validate(item) for item in data]
                 return result
 
