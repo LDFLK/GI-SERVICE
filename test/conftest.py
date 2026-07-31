@@ -1,14 +1,15 @@
+import os
+
+# Force cache off before Settings/singletons matter for any leftover imports.
+# mock_service still injects NullCache explicitly so tests never depend on Redis.
+os.environ.setdefault("CACHE_ENABLED", "false")
+
 import pytest
 from aiohttp import ClientError
 from unittest.mock import patch, PropertyMock, MagicMock
 from unittest.mock import AsyncMock
-from src.services import (
-    DataService,
-    DocumentService,
-    OpenGINService,
-    OrganisationService,
-    PersonService,
-)
+from src.cache import NullCache, SingleFlight
+from src.services import DataService, DocumentService, OpenGINService, OrganisationService, PersonService
 from src.utils import HTTPClient, Util
 
 
@@ -44,8 +45,8 @@ def mock_session():
 
 @pytest.fixture
 def mock_service():
-    """Service fixture with mocked session"""
-    return OpenGINService()
+    """OpenGIN with NullCache — always miss so existing HTTP assertions stay valid."""
+    return OpenGINService(cache=NullCache(), singleflight=SingleFlight())
 
 
 # Fixtueres for OrganisationService tests

@@ -1,4 +1,5 @@
 import pytest
+from src.cache import InMemoryCache, NullCache, SingleFlight
 from src.enums import RelationDirectionEnum, RelationNameEnum
 from src.exception import BadRequestError, NotFoundError
 from src.models import (
@@ -8,6 +9,7 @@ from src.models import (
     Relation,
     Kind,
 )
+from src.services import OpenGINService
 from test.conftest import MockResponse
 
 
@@ -449,3 +451,85 @@ async def test_get_attributes_bad_request(mock_service, mock_session):
 
     with pytest.raises(BadRequestError, match="Bad request"):
         await mock_service.get_attributes("category_123", "dataset_abc")
+
+
+# --- Read-through cache (InMemoryCache; no Redis required) ---
+
+@pytest.mark.asyncio
+async def test_get_entities_second_call_is_cache_hit(mock_session):
+    """Miss then hit: upstream POST only once."""
+    cache = InMemoryCache()
+    service = OpenGINService(cache=cache, singleflight=SingleFlight())
+    entity = Entity(id="entity_123")
+    mock_session.post.return_value = MockResponse(
+        {"body": [{"id": "entity_123", "name": "Test Entity"}]}
+    )
+
+    first = await service.get_entities(entity)
+    second = await service.get_entities(entity)
+
+    assert first == second == [Entity(id="entity_123", name="Test Entity")]
+    assert mock_session.post.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_get_entities_null_cache_always_misses(mock_session):
+    """NullCache never stores — proves wiring does not falsely cache."""
+    service = OpenGINService(cache=NullCache(), singleflight=SingleFlight())
+    entity = Entity(id="entity_123")
+    mock_session.post.return_value = MockResponse(
+        {"body": [{"id": "entity_123", "name": "Test Entity"}]}
+    )
+
+    await service.get_entities(entity)
+    await service.get_entities(entity)
+
+    assert mock_session.post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_entities_not_found_is_not_cached(mock_session):
+    """404 must not poison the cache; a later success can still be fetched."""
+    cache = InMemoryCache()
+    service = OpenGINService(cache=cache, singleflight=SingleFlight())
+    entity = Entity(id="entity_123")
+
+    mock_session.post.return_value = MockResponse({"body": []}, status=200)
+    with pytest.raises(NotFoundError):
+        await service.get_entities(entity)
+
+    mock_session.post.return_value = MockResponse(
+        {"body": [{"id": "entity_123", "name": "Recovered"}]}
+    )
+    result = await service.get_entities(entity)
+
+    assert result == [Entity(id="entity_123", name="Recovered")]
+    assert mock_session.post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_relation_second_call_is_cache_hit(mock_session):
+    cache = InMemoryCache()
+    service = OpenGINService(cache=cache, singleflight=SingleFlight())
+    entity_id = "entity_123"
+    relation = Relation(
+        name=RelationNameEnum.AS_MINISTER.value,
+        direction=RelationDirectionEnum.OUTGOING.value,
+    )
+    mock_session.post.return_value = MockResponse(
+        [
+            {
+                "id": "relation_123",
+                "name": RelationNameEnum.AS_MINISTER.value,
+                "direction": RelationDirectionEnum.OUTGOING.value,
+            }
+        ]
+    )
+
+    first = await service.fetch_relation(entity_id, relation=relation)
+    second = await service.fetch_relation(entity_id, relation=relation)
+
+    assert first == second
+    assert len(first) == 1
+    assert first[0].id == "relation_123"
+    assert mock_session.post.call_count == 1
