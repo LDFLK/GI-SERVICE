@@ -839,6 +839,76 @@ paths:
           description: Not found
         "500":
           description: Server Error
+  
+  /v1/bodies-by-department/{department_id}:
+    post:
+      tags:
+        - Organization
+      summary: Get active bodies for a department.
+      description: Returns a list of bodies under a given department and a given date.
+      operationId: getBodiesByDepartment
+      parameters:
+        - name: department_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: This request body corresponds to the date used to retrive the list of active bodies.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Date"
+      responses:
+        "200":
+          description: Successfully returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  body:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        totalbodies:
+                          type: integer
+                        newbodies:
+                          type: integer
+                        bodieslist:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                             - name
+                             - id
+                            properties:
+                             name:
+                              type: string
+                             id:
+                              type: string
+                             isNew:
+                              type: boolean
+
+              example:
+                body:
+                  - totalbodies: 2
+                    newbodies: 2
+                    bodieslist:
+                      - name: National Police Academy
+                        id: 2187-27_bod_4
+                        isNew: false
+                      - name: Assets vested to the Secretary to the Treasury, under the Act, No. 43 of 2011
+                        id: 2153-12_bod_437
+                        isNew: false
+        "400":
+          description: Bad request
+        "404":
+          description: Not found
+        "500":
+          description: Server Error
 
   /v1/persons-by-portfolio/{portfolioId}:
     post:
