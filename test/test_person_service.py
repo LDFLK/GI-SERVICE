@@ -593,4 +593,3 @@ async def test_fetch_person_profile_internal_error(
 
     with pytest.raises(InternalServerError):
         await person_service.fetch_person_profile("person_123")
-

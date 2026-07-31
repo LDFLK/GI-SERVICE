@@ -92,6 +92,7 @@ async def department_history_timeline(
     )
     return service_response
 
+
 @router.get(
     "/presidents",
     summary="Get all presidents with their term dates and gazettes sorted by date.",

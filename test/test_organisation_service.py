@@ -1229,6 +1229,7 @@ async def test_multiple_departments_aggregation(organisation_service):
     # Dependency should be called once per date
     assert organisation_service.get_ministers_and_departments.call_count == 2
 
+
 # --- Tests for fetch_presidents ---
 @pytest.mark.asyncio
 async def test_fetch_presidents_success(organisation_service, mock_opengin_service):
@@ -1361,6 +1362,7 @@ async def test_fetch_presidents_internal_error(
     with pytest.raises(InternalServerError):
         await organisation_service.fetch_presidents()
 
+
 @pytest.mark.asyncio
 async def test_fetch_presidents_gazette_on_last_day_of_tenure_is_included(
     organisation_service, mock_opengin_service
@@ -1380,7 +1382,9 @@ async def test_fetch_presidents_gazette_on_last_day_of_tenure_is_included(
 
     # The gazette is published on the exact last day of p1's tenure
     mock_opengin_service.get_entities.side_effect = [
-        [Entity(created="2022-01-01T00:00:00Z", name="last_day_gazette")],  # org gazettes
+        [
+            Entity(created="2022-01-01T00:00:00Z", name="last_day_gazette")
+        ],  # org gazettes
         [],  # person gazettes
         [Entity(id="p1", name="President One")],  # p1 name fetch
     ]

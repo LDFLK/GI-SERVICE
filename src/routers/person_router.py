@@ -33,4 +33,3 @@ async def person_profile(
 ):
     service_response = await service.fetch_person_profile(person_id)
     return service_response
-

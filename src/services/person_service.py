@@ -244,4 +244,3 @@ class PersonService:
         except Exception as e:
             logger.error(f"Error fetching person profile: {e}")
             raise InternalServerError("An unexpected error occurred") from e
-

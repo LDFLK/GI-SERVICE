@@ -1082,14 +1082,22 @@ class OrganisationService:
             for relation in president_relations:
                 president_id = relation.relatedEntityId
 
-                start_date = relation.startTime.split("T")[0] if relation.startTime else ""
+                start_date = (
+                    relation.startTime.split("T")[0] if relation.startTime else ""
+                )
                 end_date = relation.endTime.split("T")[0] if relation.endTime else ""
-                
+
                 if not start_date:
-                    logger.warning(f"Invalid start date for president relation: {president_id}")
+                    logger.warning(
+                        f"Invalid start date for president relation: {president_id}"
+                    )
                     continue
-                
-                tenure = {"startDate": start_date, "endDate": end_date, "gazetteList": []}
+
+                tenure = {
+                    "startDate": start_date,
+                    "endDate": end_date,
+                    "gazetteList": [],
+                }
 
                 if president_id not in presidents_map:
                     presidents_map[president_id] = {
@@ -1103,7 +1111,8 @@ class OrganisationService:
                 all_terms.append(
                     {
                         "start": tenure["startDate"],
-                        "end": tenure.get("endDate") or "9999-12-31", # far future date used to represent no end date
+                        "end": tenure.get("endDate")
+                        or "9999-12-31",  # far future date used to represent no end date
                         "tenure_data": tenure,
                     }
                 )
