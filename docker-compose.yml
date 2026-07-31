@@ -1,6 +1,13 @@
 version: "3.9"
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: gi-redis
+    ports:
+      - "6379:6379"
+    # Shared store for both uvicorn workers (and later multiple replicas)
+
   gi-service:
     build: .
     container_name: gi-service
@@ -8,8 +15,15 @@ services:
       - "8000:8000" # host:container
     env_file:
       - .env # load environment variables
+    environment:
+      # Hostname `redis` is the compose service name (not localhost)
+      REDIS_URL: redis://redis:6379/0
+      # Keep false until we wrap OpenGIN; flip to true to exercise Redis
+      CACHE_ENABLED: "false"
     volumes:
       - .:/app
+    depends_on:
+      - redis
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2 --timeout-keep-alive 75 --backlog 2048
 
   tests:
@@ -17,6 +31,8 @@ services:
     container_name: gi-tests
     env_file:
       - .env
+    environment:
+      CACHE_ENABLED: "false"
     volumes:
       - .:/app
     depends_on:

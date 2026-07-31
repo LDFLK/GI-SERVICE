@@ -10,13 +10,17 @@ from src.core import settings
 from fastapi.middleware.cors import CORSMiddleware
 from src.middleware import ThrottlingMiddleware
 from src.utils import http_client
+from src.cache import cache
 from contextlib import asynccontextmanager
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Same lifecycle as HTTP: open shared resources once per worker, close on shutdown
     await http_client.start()
+    await cache.connect()
     yield
+    await cache.close()
     await http_client.close()
 
 

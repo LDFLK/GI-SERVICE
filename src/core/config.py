@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     THROTTLING_MAX_CONCURRENT: int = 200
     THROTTLING_TIMEOUT: int = 30
 
+    # Cache — off by default so tests/local runs need no Redis
+    CACHE_ENABLED: bool = False
+    REDIS_URL: str = ""
+    CACHE_KEY_PREFIX: str = "gi:v1"
+    CACHE_TTL_HISTORICAL_SECONDS: int = 21_600  # 6h
+    CACHE_TTL_RECENT_SECONDS: int = 120  # 2m
+    CACHE_TTL_ENTITY_SECONDS: int = 3_600  # 1h
+    CACHE_TTL_NEGATIVE_SECONDS: int = 45
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
