@@ -1,4 +1,3 @@
-from _pytest import pytester_assertions
 from src.enums import KindMinorEnum
 from src.enums import KindMajorEnum
 from src.models import Kind

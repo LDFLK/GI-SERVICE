@@ -1,4 +1,3 @@
-from src.services import PersonService
 from fastapi import APIRouter, Depends, Query, Body, Path
 from src.models import Date
 from src.services import OpenGINService, OrganisationService

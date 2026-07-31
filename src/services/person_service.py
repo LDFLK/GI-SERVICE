@@ -4,14 +4,11 @@ from datetime import datetime
 
 import logging
 from src.enums import (
-    EntityIdEnum,
-    KindMajorEnum,
-    KindMinorEnum,
     RelationDirectionEnum,
     RelationNameEnum,
 )
 from src.exception import BadRequestError, InternalServerError, NotFoundError
-from src.models import Entity, Kind, PersonResponse, Relation
+from src.models import Entity, PersonResponse, Relation
 from src.utils import Util, http_client
 
 logger = logging.getLogger(__name__)
