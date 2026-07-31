@@ -1,10 +1,12 @@
 from pydantic import BaseModel
 from datetime import date
 
+
 class PersonSource(BaseModel):
     """
     Person source schema
     """
+
     name: str
     political_party: str | None = None
     date_of_birth: date | None = None
@@ -16,8 +18,10 @@ class PersonSource(BaseModel):
     professional_qualifications: str | None = None
     image_url: str | None = None
 
+
 class PersonResponse(PersonSource):
     """
     Person response schema inherited from the PersonSource
     """
+
     age: int | None = None

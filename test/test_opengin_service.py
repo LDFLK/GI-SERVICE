@@ -1,4 +1,3 @@
-
 import pytest
 from src.enums import RelationDirectionEnum, RelationNameEnum
 from src.exception import BadRequestError, NotFoundError
@@ -11,12 +10,15 @@ from src.models import (
 )
 from test.conftest import MockResponse
 
+
 # Test get entity
 @pytest.mark.asyncio
 async def test_get_entity_success(mock_service, mock_session):
     entity = Entity(id="entity_123")
-    mock_response = MockResponse({"body": [Entity(id="entity_123", name="Test Entity")]})
-    
+    mock_response = MockResponse(
+        {"body": [Entity(id="entity_123", name="Test Entity")]}
+    )
+
     mock_session.post.return_value = mock_response
 
     result = await mock_service.get_entities(entity)
@@ -24,37 +26,43 @@ async def test_get_entity_success(mock_service, mock_session):
     assert result == [Entity(id="entity_123", name="Test Entity")]
     mock_session.post.assert_called_once()
 
-@pytest.mark.asyncio 
+
+@pytest.mark.asyncio
 async def test_get_entity_empty_entity_id(mock_service, mock_session):
     entity = Entity(id="")
     mock_response = MockResponse({"body": []})
-    
+
     mock_session.post.return_value = mock_response
 
     with pytest.raises(NotFoundError):
         await mock_service.get_entities(entity)
 
-@pytest.mark.asyncio 
+
+@pytest.mark.asyncio
 async def test_get_entity_none_empty_id(mock_service, mock_session):
     entity = None
     mock_response = MockResponse({"body": []})
-    
+
     mock_session.post.return_value = mock_response
 
     with pytest.raises(BadRequestError):
         await mock_service.get_entities(entity)
-    
-@pytest.mark.asyncio 
+
+
+@pytest.mark.asyncio
 async def test_get_entity_by_none_response(mock_service, mock_session):
     entity = Entity(id="entity_123")
-    mock_response = MockResponse({"wrong_body": [Entity(id="entity_123", name="Test Entity")] })
+    mock_response = MockResponse(
+        {"wrong_body": [Entity(id="entity_123", name="Test Entity")]}
+    )
 
     mock_session.post.return_value = mock_response
 
     with pytest.raises(NotFoundError):
         await mock_service.get_entities(entity)
 
-@pytest.mark.asyncio 
+
+@pytest.mark.asyncio
 async def test_get_entity_by_id_empty_response(mock_service, mock_session):
     entity = Entity(id="entity_123")
     mock_response = MockResponse({"body": []})
@@ -64,7 +72,8 @@ async def test_get_entity_by_id_empty_response(mock_service, mock_session):
     with pytest.raises(NotFoundError):
         await mock_service.get_entities(entity)
 
-@pytest.mark.asyncio 
+
+@pytest.mark.asyncio
 async def test_get_entity_by_name_empty_response(mock_service, mock_session):
     entity = Entity(name="minister of X")
     mock_response = MockResponse({"body": []})
@@ -74,9 +83,10 @@ async def test_get_entity_by_name_empty_response(mock_service, mock_session):
     with pytest.raises(NotFoundError):
         await mock_service.get_entities(entity)
 
-@pytest.mark.asyncio 
+
+@pytest.mark.asyncio
 async def test_get_entity_by_kind_empty_response(mock_service, mock_session):
-    kind = Kind(major="Org",minor="min")
+    kind = Kind(major="Org", minor="min")
     entity = Entity(kind=kind)
     mock_response = MockResponse({"body": []})
 
@@ -85,7 +95,8 @@ async def test_get_entity_by_kind_empty_response(mock_service, mock_session):
     with pytest.raises(NotFoundError):
         await mock_service.get_entities(entity)
 
-@pytest.mark.asyncio 
+
+@pytest.mark.asyncio
 async def test_get_entity_by_created_empty_response(mock_service, mock_session):
     entity = Entity(created="2022-12-01")
     mock_response = MockResponse({"body": []})
@@ -95,7 +106,8 @@ async def test_get_entity_by_created_empty_response(mock_service, mock_session):
     with pytest.raises(NotFoundError):
         await mock_service.get_entities(entity)
 
-@pytest.mark.asyncio 
+
+@pytest.mark.asyncio
 async def test_get_entity_by_terminated_empty_response(mock_service, mock_session):
     entity = Entity(terminated="2022-12-01")
     mock_response = MockResponse({"body": []})
@@ -105,19 +117,40 @@ async def test_get_entity_by_terminated_empty_response(mock_service, mock_sessio
     with pytest.raises(NotFoundError):
         await mock_service.get_entities(entity)
 
+
 # Test fetch relation
-@pytest.mark.asyncio 
+@pytest.mark.asyncio
 async def test_fetch_relation_success(mock_service, mock_session):
     entity_id = "entity_123"
 
-    mock_response = MockResponse([Relation(id="relation_123",relationName=RelationNameEnum.AS_MINISTER.value,direction=RelationDirectionEnum.OUTGOING.value)])
+    mock_response = MockResponse(
+        [
+            Relation(
+                id="relation_123",
+                relationName=RelationNameEnum.AS_MINISTER.value,
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
+        ]
+    )
 
     mock_session.post.return_value = mock_response
 
-    result = await mock_service.fetch_relation(entity_id,relation=Relation(id="relation_123",direction=RelationDirectionEnum.OUTGOING.value))
+    result = await mock_service.fetch_relation(
+        entity_id,
+        relation=Relation(
+            id="relation_123", direction=RelationDirectionEnum.OUTGOING.value
+        ),
+    )
 
-    assert result == [Relation(id="relation_123",relationName=RelationNameEnum.AS_MINISTER.value,direction=RelationDirectionEnum.OUTGOING.value)]
+    assert result == [
+        Relation(
+            id="relation_123",
+            relationName=RelationNameEnum.AS_MINISTER.value,
+            direction=RelationDirectionEnum.OUTGOING.value,
+        )
+    ]
     mock_session.post.assert_called_once()
+
 
 @pytest.mark.asyncio
 async def test_fetch_relation_none_response_returns_empty_list(
@@ -137,25 +170,48 @@ async def test_fetch_relation_none_response_returns_empty_list(
     assert result == []
     mock_session.post.assert_called_once()
 
-@pytest.mark.asyncio 
+
+@pytest.mark.asyncio
 async def test_fetch_relation_empty_entity_id(mock_service, mock_session):
     entity_id = ""
-    mock_response = MockResponse([Relation(id="relation_123",relationName=RelationNameEnum.AS_MINISTER.value,direction=RelationDirectionEnum.OUTGOING.value)])
-    
+    mock_response = MockResponse(
+        [
+            Relation(
+                id="relation_123",
+                relationName=RelationNameEnum.AS_MINISTER.value,
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
+        ]
+    )
+
     mock_session.post.return_value = mock_response
 
     with pytest.raises(BadRequestError):
-        await mock_service.fetch_relation(entity_id,relation=Relation(id="relation_123"))
+        await mock_service.fetch_relation(
+            entity_id, relation=Relation(id="relation_123")
+        )
 
-@pytest.mark.asyncio 
+
+@pytest.mark.asyncio
 async def test_fetch_relation_none_entity_id(mock_service, mock_session):
     entity_id = None
-    mock_response = MockResponse([Relation(id="relation_123",relationName=RelationNameEnum.AS_MINISTER.value,direction=RelationDirectionEnum.OUTGOING.value)])
-    
+    mock_response = MockResponse(
+        [
+            Relation(
+                id="relation_123",
+                relationName=RelationNameEnum.AS_MINISTER.value,
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
+        ]
+    )
+
     mock_session.post.return_value = mock_response
 
     with pytest.raises(BadRequestError):
-        await mock_service.fetch_relation(entity_id,relation=Relation(id="relation_123"))
+        await mock_service.fetch_relation(
+            entity_id, relation=Relation(id="relation_123")
+        )
+
 
 # Tests for get_metadata
 @pytest.mark.asyncio
@@ -165,30 +221,31 @@ async def test_get_metadata_success(mock_service, mock_session):
     metadata_response = {
         "attr1": "value1",
         "attr2": "value2",
-        "description": "Test metadata"
+        "description": "Test metadata",
     }
-    
+
     mock_response = MockResponse(metadata_response)
     mock_session.get.return_value = mock_response
-    
+
     result = await mock_service.get_metadata(category_id)
-    
+
     assert result == metadata_response
     assert result["attr1"] == "value1"
     assert result["attr2"] == "value2"
     mock_session.get.assert_called_once()
+
 
 @pytest.mark.asyncio
 async def test_get_metadata_empty_response(mock_service, mock_session):
     """Test get_metadata with empty metadata response"""
     category_id = "category_456"
     empty_metadata = {}
-    
+
     mock_response = MockResponse(empty_metadata)
     mock_session.get.return_value = mock_response
-    
+
     result = await mock_service.get_metadata(category_id)
-    
+
     assert result == {}
     mock_session.get.assert_called_once()
 
@@ -250,7 +307,9 @@ async def test_get_attributes_with_query_params(mock_service, mock_session):
 
 
 @pytest.mark.asyncio
-async def test_get_attributes_omits_fields_query_param_when_not_provided(mock_service, mock_session):
+async def test_get_attributes_omits_fields_query_param_when_not_provided(
+    mock_service, mock_session
+):
     """Test get_attributes does not send fields param so the API defaults to ['*']"""
     mock_session.post.return_value = MockResponse([])
 
@@ -283,9 +342,7 @@ async def test_get_attributes_with_filter_payload(mock_service, mock_session):
     assert result == attributes_response
     call_kwargs = mock_session.post.call_args.kwargs
     assert call_kwargs["json"] == {
-        "records": [
-            {"field_name": "status", "operator": "eq", "value": "active"}
-        ]
+        "records": [{"field_name": "status", "operator": "eq", "value": "active"}]
     }
     assert call_kwargs["params"] is None
 
@@ -295,7 +352,9 @@ async def test_get_attributes_with_filter_payload(mock_service, mock_session):
     "operator",
     ["eq", "neq", "gt", "lt", "gte", "lte", "contains", "notcontains"],
 )
-async def test_get_attributes_with_filter_operators(mock_service, mock_session, operator):
+async def test_get_attributes_with_filter_operators(
+    mock_service, mock_session, operator
+):
     """Test get_attributes serializes all accepted filter operators in the payload"""
     filters = AttributeFilterRecords(
         records=[

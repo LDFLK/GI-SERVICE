@@ -3,9 +3,11 @@ from src.services import OpenGINService, PersonService
 
 router = APIRouter(prefix="/v1/person", tags=["Person"])
 
+
 def get_person_service():
     opengin_service = OpenGINService()
     return PersonService(opengin_service)
+
 
 @router.get(
     "/person-history/{person_id}",

@@ -7,6 +7,7 @@ from src.models import Entity, PersonResponse, Relation
 
 # --- Tests for is_president_during ---
 
+
 @pytest.mark.asyncio
 async def test_is_president_during_true(person_service):
     ministry_start = "2020-01-01T00:00:00Z"
@@ -178,7 +179,6 @@ async def test_fetch_person_history_bad_request(person_service):
 
 @pytest.mark.asyncio
 async def test_enrich_history_item_success(person_service, mock_opengin_service):
-    person_id = "person_123"
     relation = Relation(
         relatedEntityId="min_1",
         startTime="2020-01-01T00:00:00Z",
@@ -207,7 +207,6 @@ async def test_enrich_history_item_success(person_service, mock_opengin_service)
 
 @pytest.mark.asyncio
 async def test_enrich_history_item_not_found(person_service, mock_opengin_service):
-    person_id = "person_123"
     relation = Relation(
         relatedEntityId="ghost",
         startTime="2020-01-01T00:00:00Z",
@@ -222,7 +221,6 @@ async def test_enrich_history_item_not_found(person_service, mock_opengin_servic
 
 @pytest.mark.asyncio
 async def test_enrich_history_item_error(person_service, mock_opengin_service):
-    person_id = "person_123"
     relation = Relation(
         relatedEntityId="min_1",
         startTime="2020-01-01T00:00:00Z",
@@ -417,6 +415,7 @@ async def test_fetch_person_profile_with_null_values_coming_from_upstream(
         assert result.image_url is None
         assert result.age == 36
 
+
 @pytest.mark.asyncio
 async def test_fetch_person_profile_with_null_values_coming_from_upstream_2(
     person_service, mock_opengin_service
@@ -538,6 +537,7 @@ async def test_fetch_person_profile_with_null_values_coming_from_upstream_3(
         assert result.image_url is None
         assert result.age is None
 
+
 @pytest.mark.asyncio
 async def test_fetch_person_profile_with_null_name_should_raise_error(
     person_service, mock_opengin_service
@@ -594,23 +594,32 @@ async def test_fetch_person_profile_internal_error(
     with pytest.raises(InternalServerError):
         await person_service.fetch_person_profile("person_123")
 
+
 # --- Tests for fetch_all_presidents ---
+
 
 @pytest.mark.asyncio
 async def test_fetch_all_presidents_success(person_service, mock_opengin_service):
 
     mock_opengin_service.fetch_relation.return_value = [
-        Relation(relatedEntityId="p1", startTime="2020-01-01T00:00:00Z", endTime="2022-01-01T00:00:00Z"),
-        Relation(relatedEntityId="p1", startTime="2022-06-01T00:00:00Z", endTime="")
+        Relation(
+            relatedEntityId="p1",
+            startTime="2020-01-01T00:00:00Z",
+            endTime="2022-01-01T00:00:00Z",
+        ),
+        Relation(relatedEntityId="p1", startTime="2022-06-01T00:00:00Z", endTime=""),
     ]
 
     mock_opengin_service.get_entities.side_effect = [
         [Entity(id="g_org", created="2020-05-01T00:00:00Z", name="org_gzt")],
         [Entity(id="g_per", created="2022-08-01T00:00:00Z", name="per_gzt")],
-        [Entity(id="p1", name="President One")] # president name fetch
+        [Entity(id="p1", name="President One")],  # president name fetch
     ]
 
-    with patch("src.services.person_service.Util.decode_protobuf_attribute_name", side_effect=lambda x: x):
+    with patch(
+        "src.services.person_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
         result = await person_service.fetch_all_presidents()
 
         presidents = result["presidents"]
@@ -619,7 +628,7 @@ async def test_fetch_all_presidents_success(person_service, mock_opengin_service
         assert president["id"] == "p1"
         assert president["name"] == "President One"
         assert len(president["terms"]) == 2
-        
+
         # Check gazettes are inside the first term (2020 term)
         term1_gazettes = president["terms"][0]["gazettes_published"]
         assert len(term1_gazettes) == 1
@@ -636,10 +645,11 @@ async def test_fetch_all_presidents_success(person_service, mock_opengin_service
 @pytest.mark.asyncio
 async def test_fetch_all_presidents_no_data(person_service, mock_opengin_service):
     mock_opengin_service.fetch_relation.return_value = []
-    
+
     result = await person_service.fetch_all_presidents()
-    
+
     assert result == {"presidents": []}
+
 
 @pytest.mark.asyncio
 async def test_fetch_all_presidents_no_gazettes(person_service, mock_opengin_service):
@@ -650,10 +660,13 @@ async def test_fetch_all_presidents_no_gazettes(person_service, mock_opengin_ser
     mock_opengin_service.get_entities.side_effect = [
         [],  # No organization gazettes
         [],  # No person gazettes
-        [Entity(id="p1", name="President One")] 
+        [Entity(id="p1", name="President One")],
     ]
 
-    with patch("src.services.person_service.Util.decode_protobuf_attribute_name", side_effect=lambda x: x):
+    with patch(
+        "src.services.person_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
         result = await person_service.fetch_all_presidents()
 
         presidents = result["presidents"]
@@ -663,38 +676,55 @@ async def test_fetch_all_presidents_no_gazettes(person_service, mock_opengin_ser
 
 
 @pytest.mark.asyncio
-async def test_fetch_all_presidents_sorting_with_multiple_terms(person_service, mock_opengin_service):
-    # Setup: 
+async def test_fetch_all_presidents_sorting_with_multiple_terms(
+    person_service, mock_opengin_service
+):
+    # Setup:
     # p_old started in 2010
-    # p_multi started in 2005 AND 2022. 
+    # p_multi started in 2005 AND 2022.
     # Even though p_multi has a 2005 term, their 2022 term should put them at the TOP.
 
     mock_opengin_service.fetch_relation.return_value = [
-        Relation(relatedEntityId="p_old", startTime="2010-01-01T00:00:00Z", endTime="2015-01-01T00:00:00Z"),
-        Relation(relatedEntityId="p_multi", startTime="2005-01-01T00:00:00Z", endTime="2009-12-31T00:00:00Z"),
-        Relation(relatedEntityId="p_multi", startTime="2022-01-01T00:00:00Z", endTime="")
+        Relation(
+            relatedEntityId="p_old",
+            startTime="2010-01-01T00:00:00Z",
+            endTime="2015-01-01T00:00:00Z",
+        ),
+        Relation(
+            relatedEntityId="p_multi",
+            startTime="2005-01-01T00:00:00Z",
+            endTime="2009-12-31T00:00:00Z",
+        ),
+        Relation(
+            relatedEntityId="p_multi", startTime="2022-01-01T00:00:00Z", endTime=""
+        ),
     ]
 
     mock_opengin_service.get_entities.side_effect = [
-        [], [], # no gazettes for either
+        [],
+        [],  # no gazettes for either
         [Entity(id="p_old", name="Old President")],
-        [Entity(id="p_multi", name="Multi-term President")]
+        [Entity(id="p_multi", name="Multi-term President")],
     ]
 
-    with patch("src.services.person_service.Util.decode_protobuf_attribute_name", side_effect=lambda x: x):
+    with patch(
+        "src.services.person_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
         result = await person_service.fetch_all_presidents()
 
         presidents = result["presidents"]
-        
+
         # p_multi should be first because 2022 > 2010
         assert presidents[0]["id"] == "p_multi"
         assert presidents[1]["id"] == "p_old"
 
 
 @pytest.mark.asyncio
-async def test_fetch_all_presidents_internal_error(person_service, mock_opengin_service):
+async def test_fetch_all_presidents_internal_error(
+    person_service, mock_opengin_service
+):
     mock_opengin_service.fetch_relation.side_effect = Exception("Database down")
-    
+
     with pytest.raises(InternalServerError):
         await person_service.fetch_all_presidents()
-

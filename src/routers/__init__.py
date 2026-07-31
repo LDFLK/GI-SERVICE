@@ -9,5 +9,5 @@ __all__ = [
     "organisation_router",
     "search_router",
     "person_router",
-    "document_router"
+    "document_router",
 ]

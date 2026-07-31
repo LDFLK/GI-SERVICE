@@ -1,6 +1,7 @@
 from enum import Enum
 
-# relation names 
+
+# relation names
 class RelationNameEnum(Enum):
     AS_MINISTER = "AS_MINISTER"
     AS_APPOINTED = "AS_APPOINTED"
@@ -10,7 +11,8 @@ class RelationNameEnum(Enum):
     AS_PRESIDENT = "AS_PRESIDENT"
     AS_DEPARTMENT = "AS_DEPARTMENT"
 
-# relation directions 
+
+# relation directions
 class RelationDirectionEnum(Enum):
     OUTGOING = "OUTGOING"
     INCOMING = "INCOMING"

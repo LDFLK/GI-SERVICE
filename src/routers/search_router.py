@@ -17,30 +17,28 @@ def get_search_service():
     "",
     response_model=SearchResponse,
     summary="Unified search across all entities.",
-    description="Search departments, ministers, datasets, and persons with time-sensitivity support. Returns mixed results sorted by relevance."
+    description="Search departments, ministers, datasets, and persons with time-sensitivity support. Returns mixed results sorted by relevance.",
 )
 async def search(
     search_query: str = Query(
-        ...,
-        min_length=2,
-        description="Search query (minimum 2 characters)"
+        ..., min_length=2, description="Search query (minimum 2 characters)"
     ),
     as_of_date: Optional[str] = Query(
         None,
         description="Date for historical search (YYYY-MM-DD). Defaults to today.",
-        pattern=r"^\d{4}-\d{2}-\d{2}$"
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
     ),
     limit: Optional[int] = Query(
         None,
         ge=1,
-        description="Maximum number of results to return. If not specified, returns all results."
+        description="Maximum number of results to return. If not specified, returns all results.",
     ),
     entity_types: Optional[List[str]] = Query(
         None,
         alias="type",
-        description="Filter by entity type(s): department, stateMinister, cabinetMinister, dataset, person. Can specify multiple."
+        description="Filter by entity type(s): department, stateMinister, cabinetMinister, dataset, person. Can specify multiple.",
     ),
-    service: SearchService = Depends(get_search_service)
+    service: SearchService = Depends(get_search_service),
 ):
     """
     Unified search endpoint for departments, ministers, datasets, and persons.
@@ -70,7 +68,7 @@ async def search(
         query=search_query,
         as_of_date=search_date,
         limit=limit,
-        entity_types=entity_types
+        entity_types=entity_types,
     )
 
     return result

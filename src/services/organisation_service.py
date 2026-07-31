@@ -9,10 +9,12 @@ from src.utils import Util, http_client
 
 logger = logging.getLogger(__name__)
 
+
 class OrganisationService:
     """
     This service is responsible for executing aggregate functions by calling the OpenGINService and processing the returned data.
     """
+
     def __init__(self, opengin_service):
         self.opengin_service = opengin_service
 
@@ -20,17 +22,23 @@ class OrganisationService:
     def session(self) -> ClientSession:
         """Access the global session"""
         return http_client.session
-    
+
     # enrich person data
-    async def enrich_person_data(self, selected_date: str, person_relation: Optional[Relation] = None, president_id: Optional[str] = None, is_president: bool = False):
-        """ Enrich person data when the person_relation and selected_date given
-            - isNew attribute explains if the person is new person or not
-            - isPresident attribute explains if the person is/was a president on the given selected date
-            - If want to return the president as the default minister, no need a person_relation, just pass president_id and is_president
+    async def enrich_person_data(
+        self,
+        selected_date: str,
+        person_relation: Optional[Relation] = None,
+        president_id: Optional[str] = None,
+        is_president: bool = False,
+    ):
+        """Enrich person data when the person_relation and selected_date given
+        - isNew attribute explains if the person is new person or not
+        - isPresident attribute explains if the person is/was a president on the given selected date
+        - If want to return the president as the default minister, no need a person_relation, just pass president_id and is_president
         """
         try:
             # handle cases where president is assigned as default
-            if is_president and person_relation == None:
+            if is_president and person_relation is None:
                 entity = Entity(id=president_id)
                 person_node_data = await self.opengin_service.get_entities(
                     entity=entity
@@ -43,7 +51,7 @@ class OrganisationService:
                 person_node_data = await self.opengin_service.get_entities(
                     entity=entity
                 )
-                
+
                 id = person_relation.relatedEntityId
                 person_start_date = person_relation.startTime
                 is_new = person_start_date == Util.normalize_timestamp(selected_date)
@@ -60,18 +68,24 @@ class OrganisationService:
                 "id": id,
                 "name": name,
                 "isNew": is_new,
-                "isPresident": is_president
+                "isPresident": is_president,
             }
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
-            logger.error(f'Error fetching person data: {e}')
+            logger.error(f"Error fetching person data: {e}")
             raise InternalServerError("An unexpected error occurred") from e
 
     # eg: portfolio_relation -> single portfolio relation object with id, appointed_ministers_list -> list of people for portfolio with ids, president_id -> Id of the president
-    async def enrich_portfolio_item(self,portfolio_relation: Relation, appointed_ministers_list: list[Relation], president_id: str, selected_date: str):
+    async def enrich_portfolio_item(
+        self,
+        portfolio_relation: Relation,
+        appointed_ministers_list: list[Relation],
+        president_id: str,
+        selected_date: str,
+    ):
         """This function takes one portolio relation, appointed minister list and a selected date
-            - Output the portfolio by adding the ministers list with other details
+        - Output the portfolio by adding the ministers list with other details
         """
         try:
             portfolio_dict = portfolio_relation.model_dump()
@@ -83,17 +97,20 @@ class OrganisationService:
             )
 
             # if the appointedMinister list is not empty (because for if there is no any minister appointed, the president for that date should be assigned)
-            if(len(appointed_ministers_list) > 0):
+            if len(appointed_ministers_list) > 0:
                 person_data = [
                     self.enrich_person_data(
                         person_relation=person,
                         president_id=president_id,
-                        selected_date=selected_date
-                        ) for  person in appointed_ministers_list
+                        selected_date=selected_date,
+                    )
+                    for person in appointed_ministers_list
                 ]
                 # result contains portfolio_task result and person_data results respectively
-                results = await asyncio.gather(portfolio_task, *person_data, return_exceptions=True)
-                
+                results = await asyncio.gather(
+                    portfolio_task, *person_data, return_exceptions=True
+                )
+
                 portfolio_data = results[0][0]
                 person_data_list = results[1:]
             else:
@@ -101,10 +118,12 @@ class OrganisationService:
                 president_enrich_task = self.enrich_person_data(
                     president_id=president_id,
                     is_president=True,
-                    selected_date=selected_date
+                    selected_date=selected_date,
                 )
-                results_president_enrich = await asyncio.gather(portfolio_task, president_enrich_task, return_exceptions=True)
-                
+                results_president_enrich = await asyncio.gather(
+                    portfolio_task, president_enrich_task, return_exceptions=True
+                )
+
                 portfolio_data = results_president_enrich[0][0]
                 person_data_list = [results_president_enrich[1]]
 
@@ -117,17 +136,25 @@ class OrganisationService:
                 portfolio_dict["type"] = portfolio_data.kind.minor
                 # check if the portfolio is newly created or not
                 start_time = portfolio_relation.startTime
-                portfolio_dict["isNew"] = start_time == Util.normalize_timestamp(selected_date)
+                portfolio_dict["isNew"] = start_time == Util.normalize_timestamp(
+                    selected_date
+                )
             else:
                 logger.error(f"Error fetching portfolio data: {portfolio_data}")
                 portfolio_dict["name"] = "Unknown"
                 portfolio_dict["type"] = "Unknown"
                 portfolio_dict["isNew"] = False
-            
+
             # arrange the final portfolio details by removing unnecessary keys in the json block
-            for k in ("relatedEntityId", "startTime", "endTime", "direction","activeAt"):
+            for k in (
+                "relatedEntityId",
+                "startTime",
+                "endTime",
+                "direction",
+                "activeAt",
+            ):
                 portfolio_dict.pop(k, None)
-            
+
             portfolio_dict["ministers"] = []
             # extend the minister list with enriched person data
             portfolio_dict["ministers"].extend(person_data_list)
@@ -135,22 +162,29 @@ class OrganisationService:
             return portfolio_dict
 
         except (BadRequestError, NotFoundError):
-            raise  
+            raise
         except Exception as e:
             logger.error(f"Error enriching portfolio item: {e}")
             raise InternalServerError("An unexpected error occurred") from e
 
     # this function takes the portfolio relation and get the active minister lists. then arrange the response
-    async def process_portfolio_item(self, portfolio_relation: Relation, president_id: str, selected_date: str):
+    async def process_portfolio_item(
+        self, portfolio_relation: Relation, president_id: str, selected_date: str
+    ):
 
         try:
-            relation = Relation(name=RelationNameEnum.AS_APPOINTED.value,activeAt=Util.normalize_timestamp(selected_date),direction=RelationDirectionEnum.OUTGOING.value)
-            appointed_ministers = await self.opengin_service.fetch_relation(
-                entityId=portfolio_relation.relatedEntityId,
-                relation=relation
+            relation = Relation(
+                name=RelationNameEnum.AS_APPOINTED.value,
+                activeAt=Util.normalize_timestamp(selected_date),
+                direction=RelationDirectionEnum.OUTGOING.value,
             )
-            
-            results = await self.enrich_portfolio_item(portfolio_relation, appointed_ministers, president_id, selected_date)
+            appointed_ministers = await self.opengin_service.fetch_relation(
+                entityId=portfolio_relation.relatedEntityId, relation=relation
+            )
+
+            results = await self.enrich_portfolio_item(
+                portfolio_relation, appointed_ministers, president_id, selected_date
+            )
 
             return results
 
@@ -164,11 +198,11 @@ class OrganisationService:
     async def active_portfolio_list(self, president_id: str, selected_date: str):
         """
         Docstring for activePortfolioList
-        
+
         :param president_id: President Id
         :param selected_date: Selected Date
 
-        output type: 
+        output type:
         {
             "NoOfCabinetMinistries": 0,
             "NoOfStateMinistries": 0,
@@ -197,20 +231,21 @@ class OrganisationService:
 
         if selected_date is None or selected_date == "":
             raise BadRequestError("Selected date is required")
-        
+
         try:
             try:
-                await self.opengin_service.get_entities(
-                    entity=Entity(id=president_id)
-                )
+                await self.opengin_service.get_entities(entity=Entity(id=president_id))
             except NotFoundError as e:
                 raise NotFoundError("President not found for the given ID") from e
 
-            # First retrieve the relation list of the active portfolios under given president and given date  
-            relation = Relation(name=RelationNameEnum.AS_MINISTER.value,activeAt=Util.normalize_timestamp(selected_date),direction=RelationDirectionEnum.OUTGOING.value)   
+            # First retrieve the relation list of the active portfolios under given president and given date
+            relation = Relation(
+                name=RelationNameEnum.AS_MINISTER.value,
+                activeAt=Util.normalize_timestamp(selected_date),
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
             activePortfolioList = await self.opengin_service.fetch_relation(
-                entityId=president_id,
-                relation=relation
+                entityId=president_id, relation=relation
             )
 
             # A valid president may have no active portfolio relations for the
@@ -228,10 +263,13 @@ class OrganisationService:
                 }
 
             # Process each portfolio item in parallel
-            results =await asyncio.gather(*[
-                self.process_portfolio_item(portfolio, president_id, selected_date)
-                for portfolio in activePortfolioList
-            ], return_exceptions=True)
+            results = await asyncio.gather(
+                *[
+                    self.process_portfolio_item(portfolio, president_id, selected_date)
+                    for portfolio in activePortfolioList
+                ],
+                return_exceptions=True,
+            )
 
             # Track successes and failures
             exceptions = []
@@ -239,28 +277,33 @@ class OrganisationService:
 
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    exceptions.append({
-                        "portfolioId": activePortfolioList[i].id,
-                        "error": str(result)
-                    })
-                    logger.error(f"Error processing portfolio {activePortfolioList[i].id}: {result}")
+                    exceptions.append(
+                        {"portfolioId": activePortfolioList[i].id, "error": str(result)}
+                    )
+                    logger.error(
+                        f"Error processing portfolio {activePortfolioList[i].id}: {result}"
+                    )
                 else:
                     successful_portfolios.append(results[i])
-            
+
             if results and len(exceptions) == len(results):
                 raise InternalServerError("Failed to process all portfolios")
-            
+
             # Calculate final counts
-            newMinistries = newMinisters = ministriesUnderPresident = noOfStateMinistries = 0
+            newMinistries = newMinisters = ministriesUnderPresident = (
+                noOfStateMinistries
+            ) = 0
 
             for portfolio in successful_portfolios:
                 newMinistries += portfolio.get("isNew", False)
-                ministers = portfolio.get("ministers",[])
-                noOfStateMinistries += 1 if portfolio.get("type", "").lower() == "stateminister" else 0
+                ministers = portfolio.get("ministers", [])
+                noOfStateMinistries += (
+                    1 if portfolio.get("type", "").lower() == "stateminister" else 0
+                )
                 for minister in ministers:
                     if isinstance(minister, dict):
                         newMinisters += minister.get("isNew", False)
-                        ministriesUnderPresident += minister.get("isPresident",False)
+                        ministriesUnderPresident += minister.get("isPresident", False)
 
             # final result to return
             finalResult = {
@@ -269,7 +312,7 @@ class OrganisationService:
                 "newMinistries": newMinistries,
                 "newMinisters": newMinisters,
                 "ministriesUnderPresident": ministriesUnderPresident,
-                "portfolioList" : successful_portfolios,
+                "portfolioList": successful_portfolios,
             }
 
             return finalResult
@@ -278,36 +321,46 @@ class OrganisationService:
             raise
         except Exception as e:
             raise InternalServerError("An unexpected error occurred") from e
-    
+
     # helper: enrich department
-    async def enrich_department_item(self, department_relation: Relation, selected_date: str):
+    async def enrich_department_item(
+        self, department_relation: Relation, selected_date: str
+    ):
 
         department_id = department_relation.relatedEntityId
 
         entity = Entity(id=department_id)
         department_data_task = self.opengin_service.get_entities(entity=entity)
-        dataset_task = self.opengin_service.fetch_relation(entityId=department_id, relation=Relation(name=RelationNameEnum.AS_CATEGORY.value, direction=RelationDirectionEnum.OUTGOING.value))
+        dataset_task = self.opengin_service.fetch_relation(
+            entityId=department_id,
+            relation=Relation(
+                name=RelationNameEnum.AS_CATEGORY.value,
+                direction=RelationDirectionEnum.OUTGOING.value,
+            ),
+        )
 
         # run parallel calls to get department data and parent category relations to ensure the department has data
-        department_data, dataset_relations = await asyncio.gather(department_data_task, dataset_task, return_exceptions=True)
+        department_data, dataset_relations = await asyncio.gather(
+            department_data_task, dataset_task, return_exceptions=True
+        )
 
         department_first_datum = department_data[0]
 
         # decode name
         name = Util.decode_protobuf_attribute_name(department_first_datum.name)
-            
+
         # check the department is new or not
         department_start_date = department_relation.startTime
         is_new = department_start_date == Util.normalize_timestamp(selected_date)
 
         # check the department has data or not
         has_data = bool(dataset_relations)
-            
+
         final_result = {
             "id": department_id,
             "name": name,
             "isNew": is_new,
-            "hasData": has_data
+            "hasData": has_data,
         }
 
         return final_result
@@ -316,11 +369,11 @@ class OrganisationService:
     async def departments_by_portfolio(self, portfolio_id: str, selected_date: str):
         """
         Docstring for department_by_portfolio
-        
+
         :param portfolio_id: Portfolio Id
         :param selected_date: Selected Date
 
-        output type: 
+        output type:
         {
             "totalDepartments": 0,
             "newDepartments": 0,
@@ -342,23 +395,28 @@ class OrganisationService:
             raise BadRequestError("Selected date is required")
 
         try:
-            relation = Relation(name=RelationNameEnum.AS_DEPARTMENT.value,activeAt=Util.normalize_timestamp(selected_date),direction=RelationDirectionEnum.OUTGOING.value)
-            department_relation_list = await self.opengin_service.fetch_relation(
-                entityId=portfolio_id,
-                relation=relation
+            relation = Relation(
+                name=RelationNameEnum.AS_DEPARTMENT.value,
+                activeAt=Util.normalize_timestamp(selected_date),
+                direction=RelationDirectionEnum.OUTGOING.value,
             )
-            
+            department_relation_list = await self.opengin_service.fetch_relation(
+                entityId=portfolio_id, relation=relation
+            )
+
             # tasks to run in parallel
             enrich_department_tasks = [
-                self.enrich_department_item(department_relation=department_relation, selected_date=selected_date)
+                self.enrich_department_item(
+                    department_relation=department_relation, selected_date=selected_date
+                )
                 for department_relation in department_relation_list
             ]
 
-            results = await asyncio.gather(*enrich_department_tasks, return_exceptions=True)
+            results = await asyncio.gather(
+                *enrich_department_tasks, return_exceptions=True
+            )
 
-            departments = [
-                r for r in results if not isinstance(r, Exception)
-            ]
+            departments = [r for r in results if not isinstance(r, Exception)]
 
             # Calculate final counts
             new_departments = sum(1 for d in departments if d.get("isNew"))
@@ -367,7 +425,7 @@ class OrganisationService:
             finalResult = {
                 "totalDepartments": len(departments),
                 "newDepartments": new_departments,
-                "departmentList" : departments,
+                "departmentList": departments,
             }
 
             return finalResult
@@ -381,10 +439,10 @@ class OrganisationService:
     async def fetch_prime_minister(self, selected_date):
         """
         Fetch Prime Minister
-        
+
         :param selected_date: Selected Date
 
-        output format: 
+        output format:
         {
             "body": {
                 "id": "",
@@ -395,42 +453,44 @@ class OrganisationService:
         }
         """
         try:
-
             if not selected_date or not selected_date.strip():
                 raise BadRequestError("Selected date is required")
 
-            relation = Relation(name=RelationNameEnum.AS_PRIME_MINISTER.value,activeAt=Util.normalize_timestamp(selected_date),direction=RelationDirectionEnum.OUTGOING.value)
+            relation = Relation(
+                name=RelationNameEnum.AS_PRIME_MINISTER.value,
+                activeAt=Util.normalize_timestamp(selected_date),
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
             prime_minister_relations = await self.opengin_service.fetch_relation(
-                entityId=EntityIdEnum.GOVERNMENT.value,
-                relation=relation
+                entityId=EntityIdEnum.GOVERNMENT.value, relation=relation
             )
 
             if not prime_minister_relations:
-                return {
-                    "body": {}
-                }
-                
+                return {"body": {}}
+
             first_prime_minister_relation = prime_minister_relations[0]
 
-            prime_minister_data = await self.enrich_person_data(person_relation=first_prime_minister_relation, selected_date=selected_date)
+            prime_minister_data = await self.enrich_person_data(
+                person_relation=first_prime_minister_relation,
+                selected_date=selected_date,
+            )
 
             if not prime_minister_data:
-                return {
-                    "body": {}
-                }
+                return {"body": {}}
 
             prime_minister_data.pop("isPresident", None)
-            
-            term = Util.term(startTime=first_prime_minister_relation.startTime, endTime=first_prime_minister_relation.endTime)
+
+            term = Util.term(
+                startTime=first_prime_minister_relation.startTime,
+                endTime=first_prime_minister_relation.endTime,
+            )
 
             prime_minister_data["term"] = term
 
-            final_result = {
-                "body": prime_minister_data
-            }
+            final_result = {"body": prime_minister_data}
 
             return final_result
-        
+
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
@@ -438,33 +498,38 @@ class OrganisationService:
 
     async def get_active_ministers(self, entity_id, date_active):
 
-        relation = Relation(name=RelationNameEnum.AS_MINISTER.value,activeAt=Util.normalize_timestamp(date_active),direction=RelationDirectionEnum.OUTGOING.value)
+        relation = Relation(
+            name=RelationNameEnum.AS_MINISTER.value,
+            activeAt=Util.normalize_timestamp(date_active),
+            direction=RelationDirectionEnum.OUTGOING.value,
+        )
 
         minister_relations = await self.opengin_service.fetch_relation(
-                entityId=entity_id,
-                relation=relation
-            )        
+            entityId=entity_id, relation=relation
+        )
         return [item.relatedEntityId for item in minister_relations]
 
     async def get_active_departments(self, entity_id, date_active):
 
-        relation = Relation(name=RelationNameEnum.AS_DEPARTMENT.value,activeAt=Util.normalize_timestamp(date_active),direction=RelationDirectionEnum.OUTGOING.value)
+        relation = Relation(
+            name=RelationNameEnum.AS_DEPARTMENT.value,
+            activeAt=Util.normalize_timestamp(date_active),
+            direction=RelationDirectionEnum.OUTGOING.value,
+        )
 
         department_relations = await self.opengin_service.fetch_relation(
-                entityId=entity_id,
-                relation=relation
-            )      
+            entityId=entity_id, relation=relation
+        )
 
         return [
-            {
-                "ministerId": entity_id,
-                "departmentId": item.relatedEntityId
-            }
+            {"ministerId": entity_id, "departmentId": item.relatedEntityId}
             for item in department_relations
         ]
-    
-    async def get_ministers_and_departments(self, president_id: str, selected_date: str):
-                
+
+    async def get_ministers_and_departments(
+        self, president_id: str, selected_date: str
+    ):
+
         departments_results = []
 
         try:
@@ -477,8 +542,10 @@ class OrganisationService:
                 self.get_active_departments(minister_id, selected_date)
                 for minister_id in minister_ids
             ]
-            
-            departments_results = await asyncio.gather(*tasks_for_departments, return_exceptions=True)
+
+            departments_results = await asyncio.gather(
+                *tasks_for_departments, return_exceptions=True
+            )
 
             flattened_results = []
             for result in departments_results:
@@ -490,16 +557,18 @@ class OrganisationService:
             raise
         except Exception as e:
             raise InternalServerError("An unexpected error occurred") from e
-    
+
     # API: cabinet flow for the given president id and date range of the presidency
-    async def fetch_cabinet_flow(self, president_id: str, dates: Sequence[str], max_dates: int = 10):
+    async def fetch_cabinet_flow(
+        self, president_id: str, dates: Sequence[str], max_dates: int = 10
+    ):
         """
         Fetch Cabinet Flow
-        
+
         :param president_id: President ID
         :param dates: List of dates
 
-        output format: 
+        output format:
         {
             "nodes": [
                 {"id": "<minister_id>", "time": "<date>", "name": "<minister_name>"}
@@ -521,28 +590,37 @@ class OrganisationService:
         status "no_data" (departmentsCount 0) or "error" are excluded from the
         chart; consecutive included dates are linked directly across skipped dates.
         """
-        
+
         if len(dates) > max_dates:
-            raise BadRequestError(f"Too many dates requested, only {max_dates} dates are allowed")
-        
+            raise BadRequestError(
+                f"Too many dates requested, only {max_dates} dates are allowed"
+            )
+
         if len(dates) == 1:
             raise ValueError("At least 2 dates required for the comparison")
 
         try:
             tasks_for_dates = [
-                self.get_ministers_and_departments(president_id, date)
-                for date in dates
+                self.get_ministers_and_departments(president_id, date) for date in dates
             ]
-            dates_gov_struct = await asyncio.gather(*tasks_for_dates, return_exceptions=True)
+            dates_gov_struct = await asyncio.gather(
+                *tasks_for_dates, return_exceptions=True
+            )
 
-            departments_by_ministers = {} # maps department_id -> [node_index_at_chart_slot0, ...] across included dates only
-            name_lookup = {} # maps entity_id -> human-readable name, populated after fetching minister names
-            nodes: list[dict[str, str]] = [] # list of graph nodes, each representing a minister at a specific date e.g. {"id": "minister_001", "time": "2015-01-01"}
-            node_indices: dict[tuple[str, int], int] = {} # maps (minister_id, chart_index) -> index in `nodes`, avoids duplicate nodes for the same minister at the same chart slot
-            links_departments: dict[tuple[int, int], list[str]] = {} # maps (source_node_index, target_node_index) -> department ids that moved between those two ministers across consecutive included dates
+            departments_by_ministers = {}  # maps department_id -> [node_index_at_chart_slot0, ...] across included dates only
+            name_lookup = {}  # maps entity_id -> human-readable name, populated after fetching minister names
+            nodes: list[
+                dict[str, str]
+            ] = []  # list of graph nodes, each representing a minister at a specific date e.g. {"id": "minister_001", "time": "2015-01-01"}
+            node_indices: dict[
+                tuple[str, int], int
+            ] = {}  # maps (minister_id, chart_index) -> index in `nodes`, avoids duplicate nodes for the same minister at the same chart slot
+            links_departments: dict[
+                tuple[int, int], list[str]
+            ] = {}  # maps (source_node_index, target_node_index) -> department ids that moved between those two ministers across consecutive included dates
             date_status: list[dict[str, object]] = [
                 {"date": d, "status": "pending"} for d in dates
-            ] # tracks processing status per date ("pending" -> "ok" / "error" / "no_data") for the response metadata
+            ]  # tracks processing status per date ("pending" -> "ok" / "error" / "no_data") for the response metadata
 
             for date_index, result in enumerate(dates_gov_struct):
                 if isinstance(result, Exception):
@@ -560,7 +638,7 @@ class OrganisationService:
                         "message": "Unexpected response type while building cabinet flow",
                     }
                     continue
-                
+
                 if not result:
                     date_status[date_index] = {
                         "date": dates[date_index],
@@ -568,14 +646,16 @@ class OrganisationService:
                         "departmentsCount": 0,
                     }
                     continue
-                
+
                 date_status[date_index] = {
                     "date": dates[date_index],
                     "status": "ok",
                     "departmentsCount": len(result),
                 }
 
-            included_indices = [i for i, s in enumerate(date_status) if s["status"] == "ok"]
+            included_indices = [
+                i for i, s in enumerate(date_status) if s["status"] == "ok"
+            ]
             chart_slot_count = len(included_indices)
 
             for chart_index, date_index in enumerate(included_indices):
@@ -602,33 +682,39 @@ class OrganisationService:
                     # eg: nodes = [{"id": "minister_001", "time": "2015-01-01"}, {"id": "minister_002", "time": "2015-01-01"}]
                     node_index = None
                     if minister_id:
-                        node_key = (minister_id, chart_index) # e.g. ("minister_001", 0) — unique key per minister per chart slot
-                        node_index = node_indices.get(node_key) # check if this minister already has a node for this chart slot
+                        node_key = (
+                            minister_id,
+                            chart_index,
+                        )  # e.g. ("minister_001", 0) — unique key per minister per chart slot
+                        node_index = node_indices.get(
+                            node_key
+                        )  # check if this minister already has a node for this chart slot
                         if node_index is None:
                             node_index = len(nodes)
                             node_indices[node_key] = node_index
-                            nodes.append({
-                                "id": minister_id,
-                                "time": dates[date_index]
-                            })
+                            nodes.append({"id": minister_id, "time": dates[date_index]})
 
                     # For each department, maintain a "timeline" across included dates.
                     # departments_by_ministers[department_id] = [node_index_at_chart_slot0, ...]
                     # Each node_index points into `nodes` (which is keyed by (minister_id, chart_index)).
-                    timeline = departments_by_ministers.get(department_id)  # reuse the same list across chart slots
+                    timeline = departments_by_ministers.get(
+                        department_id
+                    )  # reuse the same list across chart slots
                     if timeline is None:
                         timeline = [None] * chart_slot_count
                         departments_by_ministers[department_id] = timeline
                     # Compare consecutive included dates for this department to detect a move.
                     # previous_index is the minister-node at the prior chart slot; node_index is at chart_index.
-                    previous_index = timeline[chart_index - 1] if chart_index > 0 else None
+                    previous_index = (
+                        timeline[chart_index - 1] if chart_index > 0 else None
+                    )
                     timeline[chart_index] = node_index
 
                     # Aggregate movements: each department that goes from previous_index -> node_index is added to that link.
                     if previous_index is not None and node_index is not None:
                         key = (previous_index, node_index)
                         links_departments.setdefault(key, []).append(department_id)
-                    
+
             links = [
                 {
                     "source": source,
@@ -638,24 +724,26 @@ class OrganisationService:
                 }
                 for (source, target), department_ids in links_departments.items()
             ]
-            
-            unique_ids = list({node['id'] for node in nodes})
+
+            unique_ids = list({node["id"] for node in nodes})
             tasks_for_getting_names = [
-                self.opengin_service.get_entities(
-                    entity= Entity(id=id)
-                )
+                self.opengin_service.get_entities(entity=Entity(id=id))
                 for id in unique_ids
             ]
-            name_output = await asyncio.gather(*tasks_for_getting_names, return_exceptions=True) 
-            
+            name_output = await asyncio.gather(
+                *tasks_for_getting_names, return_exceptions=True
+            )
+
             for name_obj in name_output:
                 if isinstance(name_obj, Exception):
                     continue
                 for name in name_obj:
-                    name_lookup[name.id] = Util.decode_protobuf_attribute_name(name.name)
-                        
+                    name_lookup[name.id] = Util.decode_protobuf_attribute_name(
+                        name.name
+                    )
+
             for node in nodes:
-                node["name"] = name_lookup.get(node['id'])
+                node["name"] = name_lookup.get(node["id"])
 
             return {
                 "nodes": nodes,
@@ -675,8 +763,7 @@ class OrganisationService:
         while queue:
             current_id = queue.pop(0)
             renamed_relations = await self.opengin_service.fetch_relation(
-                entityId=current_id,
-                relation=Relation(name="RENAMED_TO")
+                entityId=current_id, relation=Relation(name="RENAMED_TO")
             )
             for relation in renamed_relations:
                 if relation.relatedEntityId not in entity_ids:
@@ -687,7 +774,10 @@ class OrganisationService:
     # helper : fetch entities in parallel and map them by id
     async def _fetch_and_map_entities(self, entity_ids: list[str]) -> dict[str, Entity]:
         """Fetch multiple entities in parallel and return a map by ID."""
-        tasks = [self.opengin_service.get_entities(Entity(id=entity_id)) for entity_id in entity_ids]
+        tasks = [
+            self.opengin_service.get_entities(Entity(id=entity_id))
+            for entity_id in entity_ids
+        ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         entity_map = {}
         for result in results:
@@ -710,14 +800,23 @@ class OrganisationService:
         }
 
     # helper : fetch relations for multiple entities in parallel and map them by id
-    async def _fetch_and_map_relations(self, entity_ids: list[str], relation_query: Relation) -> dict[str, list[Relation]]:
+    async def _fetch_and_map_relations(
+        self, entity_ids: list[str], relation_query: Relation
+    ) -> dict[str, list[Relation]]:
         """Fetch relations for multiple entities in parallel and map them."""
-        tasks = [self.opengin_service.fetch_relation(entityId=entity_id, relation=relation_query) for entity_id in entity_ids]
+        tasks = [
+            self.opengin_service.fetch_relation(
+                entityId=entity_id, relation=relation_query
+            )
+            for entity_id in entity_ids
+        ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         relation_map = {}
         for i, result in enumerate(results):
             entity_id = entity_ids[i]
-            relation_map[entity_id] = result if not isinstance(result, Exception) else []
+            relation_map[entity_id] = (
+                result if not isinstance(result, Exception) else []
+            )
         return relation_map
 
     # API: department history timeline for the given department
@@ -734,28 +833,43 @@ class OrganisationService:
         try:
             # 1. Get Lineage and Initial Relations
             department_ids = await self._get_renamed_lineage(department_id)
-            
+
             ministry_department_relation_map = await self._fetch_and_map_relations(
-                list(department_ids), 
-                Relation(name="AS_DEPARTMENT", direction="INCOMING")
+                list(department_ids),
+                Relation(name="AS_DEPARTMENT", direction="INCOMING"),
             )
-            
+
             # Filter out same startTime and endTime min-dep relations
             all_ministry_department_relations = [
-                relation for relations in ministry_department_relation_map.values() for relation in relations 
+                relation
+                for relations in ministry_department_relation_map.values()
+                for relation in relations
                 if relation.startTime != relation.endTime
             ]
 
             # 2. Fetch all Ministry Info and Person Appointment relations in parallel
-            ministry_ids = list(set(relation.relatedEntityId for relation in all_ministry_department_relations))
-            
+            ministry_ids = list(
+                set(
+                    relation.relatedEntityId
+                    for relation in all_ministry_department_relations
+                )
+            )
+
             ministry_info_map, person_appointment_relation_map = await asyncio.gather(
                 self._fetch_and_map_entities(ministry_ids),
-                self._fetch_and_map_relations(ministry_ids, Relation(name="AS_APPOINTED"))
+                self._fetch_and_map_relations(
+                    ministry_ids, Relation(name="AS_APPOINTED")
+                ),
             )
 
             # 3. Fetch all Person info for those appointments
-            person_ids = list(set(person_appointment.relatedEntityId for person_appointments in person_appointment_relation_map.values() for person_appointment in person_appointments))
+            person_ids = list(
+                set(
+                    person_appointment.relatedEntityId
+                    for person_appointments in person_appointment_relation_map.values()
+                    for person_appointment in person_appointments
+                )
+            )
             person_info_map = await self._fetch_and_map_entities(person_ids)
 
             # 4. Filter person appointments that overlap with this specific ministry-department period
@@ -765,88 +879,142 @@ class OrganisationService:
                 ministry_entity = ministry_info_map.get(ministry_id)
                 if not ministry_entity:
                     continue
-                
-                ministry_name = Util.decode_protobuf_attribute_name(ministry_entity.name)
-                
+
+                ministry_name = Util.decode_protobuf_attribute_name(
+                    ministry_entity.name
+                )
+
                 relevant_persons = []
-                for person_appointment in person_appointment_relation_map.get(ministry_id, []):
-                    person_entity = person_info_map.get(person_appointment.relatedEntityId)
+                for person_appointment in person_appointment_relation_map.get(
+                    ministry_id, []
+                ):
+                    person_entity = person_info_map.get(
+                        person_appointment.relatedEntityId
+                    )
                     if not person_entity:
                         continue
-                    
-                    overlap_start = max(person_appointment.startTime, ministry_department_relation.startTime)
-                    overlap_end = min(person_appointment.endTime or FAR_FUTURE, ministry_department_relation.endTime or FAR_FUTURE)
-                    
+
+                    overlap_start = max(
+                        person_appointment.startTime,
+                        ministry_department_relation.startTime,
+                    )
+                    overlap_end = min(
+                        person_appointment.endTime or FAR_FUTURE,
+                        ministry_department_relation.endTime or FAR_FUTURE,
+                    )
+
                     if overlap_start < overlap_end:
-                        relevant_persons.append({
-                            "ministry_id": ministry_id,
-                            "ministry_name": ministry_name,
-                            "minister_id": person_entity.id,
-                            "minister_name": Util.decode_protobuf_attribute_name(person_entity.name),
-                            "startTime": overlap_start,
-                            "endTime": overlap_end
-                        })
-                
+                        relevant_persons.append(
+                            {
+                                "ministry_id": ministry_id,
+                                "ministry_name": ministry_name,
+                                "minister_id": person_entity.id,
+                                "minister_name": Util.decode_protobuf_attribute_name(
+                                    person_entity.name
+                                ),
+                                "startTime": overlap_start,
+                                "endTime": overlap_end,
+                            }
+                        )
+
                 # Detect gaps between appointed persons and placeholder them
                 relevant_persons.sort(key=lambda x: x["startTime"])
                 current_time = ministry_department_relation.startTime
                 relation_end = ministry_department_relation.endTime or FAR_FUTURE
-                
+
                 for person in relevant_persons:
                     if current_time < person["startTime"]:
-                        enriched.append({
-                            "ministry_id": ministry_id, "ministry_name": ministry_name,
-                            "minister_id": None, "startTime": current_time, "endTime": person["startTime"]
-                        })
+                        enriched.append(
+                            {
+                                "ministry_id": ministry_id,
+                                "ministry_name": ministry_name,
+                                "minister_id": None,
+                                "startTime": current_time,
+                                "endTime": person["startTime"],
+                            }
+                        )
                     current_time = person["endTime"]
-                
+
                 if current_time < relation_end:
-                    enriched.append({
-                        "ministry_id": ministry_id, "ministry_name": ministry_name,
-                        "minister_id": None, "startTime": current_time, "endTime": relation_end
-                    })
-                
+                    enriched.append(
+                        {
+                            "ministry_id": ministry_id,
+                            "ministry_name": ministry_name,
+                            "minister_id": None,
+                            "startTime": current_time,
+                            "endTime": relation_end,
+                        }
+                    )
+
                 enriched.extend(relevant_persons)
 
             # 5. Fill Gaps With President (if gaps exist)
             if any(entry.get("minister_id") is None for entry in enriched):
-                president_relations = await self.opengin_service.fetch_relation(entityId=EntityIdEnum.GOVERNMENT.value, relation=Relation(name=RelationNameEnum.AS_PRESIDENT.value))
-                president_info_map = await self._fetch_and_map_entities(list(set(relation.relatedEntityId for relation in president_relations)))
+                president_relations = await self.opengin_service.fetch_relation(
+                    entityId=EntityIdEnum.GOVERNMENT.value,
+                    relation=Relation(name=RelationNameEnum.AS_PRESIDENT.value),
+                )
+                president_info_map = await self._fetch_and_map_entities(
+                    list(
+                        set(
+                            relation.relatedEntityId for relation in president_relations
+                        )
+                    )
+                )
 
                 for entry in enriched:
                     if entry.get("minister_id") is None:
                         for president_relation in president_relations:
-                            president_start_time, president_end_time = president_relation.startTime, president_relation.endTime or FAR_FUTURE
-                            overlap_start = max(president_start_time, entry["startTime"])
+                            president_start_time, president_end_time = (
+                                president_relation.startTime,
+                                president_relation.endTime or FAR_FUTURE,
+                            )
+                            overlap_start = max(
+                                president_start_time, entry["startTime"]
+                            )
                             overlap_end = min(president_end_time, entry["endTime"])
-                            
+
                             if overlap_start < overlap_end:
-                                president_entity = president_info_map.get(president_relation.relatedEntityId)
+                                president_entity = president_info_map.get(
+                                    president_relation.relatedEntityId
+                                )
                                 if president_entity:
-                                    entry.update({
-                                        "minister_id": president_entity.id,
-                                        "minister_name": Util.decode_protobuf_attribute_name(president_entity.name),
-                                        "startTime": overlap_start,
-                                        "endTime": overlap_end
-                                    })
+                                    entry.update(
+                                        {
+                                            "minister_id": president_entity.id,
+                                            "minister_name": Util.decode_protobuf_attribute_name(
+                                                president_entity.name
+                                            ),
+                                            "startTime": overlap_start,
+                                            "endTime": overlap_end,
+                                        }
+                                    )
                                     break
 
             # 6. Collapse consecutive similar entries
             enriched.sort(key=lambda x: x["startTime"])
             collapsed = []
             for entry in enriched:
-                if collapsed and (collapsed[-1]["minister_id"] == entry["minister_id"] and 
-                                  collapsed[-1]["ministry_name"] == entry["ministry_name"] and 
-                                  collapsed[-1]["endTime"] >= entry["startTime"]):
-                    collapsed[-1]["endTime"] = max(collapsed[-1]["endTime"], entry["endTime"])
+                if collapsed and (
+                    collapsed[-1]["minister_id"] == entry["minister_id"]
+                    and collapsed[-1]["ministry_name"] == entry["ministry_name"]
+                    and collapsed[-1]["endTime"] >= entry["startTime"]
+                ):
+                    collapsed[-1]["endTime"] = max(
+                        collapsed[-1]["endTime"], entry["endTime"]
+                    )
                 else:
                     collapsed.append(entry)
 
             # 7. Final Sort and clean up
             collapsed.sort(key=lambda x: x["startTime"], reverse=True)
             for entry in collapsed:
-                actual_end = None if entry["endTime"] == FAR_FUTURE else entry["endTime"]
-                entry["period"] = Util.term(entry["startTime"], actual_end, get_full_date=True)
+                actual_end = (
+                    None if entry["endTime"] == FAR_FUTURE else entry["endTime"]
+                )
+                entry["period"] = Util.term(
+                    entry["startTime"], actual_end, get_full_date=True
+                )
 
                 for key in ["startTime", "endTime"]:
                     entry.pop(key, None)
