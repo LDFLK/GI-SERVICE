@@ -42,10 +42,13 @@ paths:
                       - startDate: 2024-09-23T00:00:00Z
                         endDate: ""
                         gazetteList:
-                          - gazetteId: 2411-09
-                            date: 2024-11-18T00:00:00Z
-                          - gazetteId: 2412-03
-                            date: 2024-12-13T00:00:00Z
+                          - date: 2024-11-18T00:00:00Z
+                            idList:
+                              - 2411-09
+                          - date: 2024-12-13T00:00:00Z
+                            idList:
+                              - 2412-03
+                              - 2412-04
         "500":
           description: Server Error
 
@@ -821,13 +824,15 @@ components:
           items:
             type: object
             required:
-              - gazetteId
               - date
+              - idList
             properties:
-              gazetteId:
-                type: string
               date:
                 type: string
+              idList:
+                type: array
+                items:
+                  type: string
 
     Person:
       type: object

@@ -1228,3 +1228,135 @@ async def test_multiple_departments_aggregation(organisation_service):
 
     # Dependency should be called once per date
     assert organisation_service.get_ministers_and_departments.call_count == 2
+
+# --- Tests for fetch_presidents ---
+@pytest.mark.asyncio
+async def test_fetch_presidents_success(organisation_service, mock_opengin_service):
+
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(
+            relatedEntityId="p1",
+            startTime="2020-01-01T00:00:00Z",
+            endTime="2022-01-01T00:00:00Z",
+        ),
+        Relation(relatedEntityId="p1", startTime="2022-06-01T00:00:00Z", endTime=""),
+    ]
+
+    mock_opengin_service.get_entities.side_effect = [
+        [Entity(id="g_org", created="2020-05-01T00:00:00Z", name="org_gzt")],
+        [Entity(id="g_per", created="2022-08-01T00:00:00Z", name="per_gzt")],
+        [Entity(id="p1", name="President One")],  # president name fetch
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
+        result = await organisation_service.fetch_presidents()
+
+        presidents = result["body"]
+        assert len(presidents) == 1
+        president = presidents[0]
+        assert president["id"] == "p1"
+        assert president["name"] == "President One"
+        assert len(president["tenureList"]) == 2
+
+        # Check gazettes are inside the first term (2020 term)
+        term1_gazettes = president["tenureList"][0]["gazetteList"]
+        assert len(term1_gazettes) == 1
+        assert term1_gazettes[0]["date"] == "2020-05-01"
+        assert "org_gzt" in term1_gazettes[0]["idList"]
+
+        # Check gazettes are inside the second term (2022 term)
+        term2_gazettes = president["tenureList"][1]["gazetteList"]
+        assert len(term2_gazettes) == 1
+        assert term2_gazettes[0]["date"] == "2022-08-01"
+        assert "per_gzt" in term2_gazettes[0]["idList"]
+
+
+@pytest.mark.asyncio
+async def test_fetch_presidents_no_data(organisation_service, mock_opengin_service):
+    mock_opengin_service.fetch_relation.return_value = []
+
+    result = await organisation_service.fetch_presidents()
+
+    assert result == {"body": []}
+
+
+@pytest.mark.asyncio
+async def test_fetch_presidents_no_gazettes(organisation_service, mock_opengin_service):
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(relatedEntityId="p1", startTime="2020-01-01T00:00:00Z", endTime="")
+    ]
+
+    mock_opengin_service.get_entities.side_effect = [
+        [],  # No organization gazettes
+        [],  # No person gazettes
+        [Entity(id="p1", name="President One")],
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
+        result = await organisation_service.fetch_presidents()
+
+        presidents = result["body"]
+        assert len(presidents) == 1
+        assert presidents[0]["name"] == "President One"
+        assert presidents[0]["tenureList"][0]["gazetteList"] == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_presidents_sorting_with_multiple_terms(
+    organisation_service, mock_opengin_service
+):
+    # Setup:
+    # p_old started in 2010
+    # p_multi started in 2005 AND 2022.
+    # Even though p_multi has a 2005 term, their 2022 term should put them at the TOP.
+
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(
+            relatedEntityId="p_old",
+            startTime="2010-01-01T00:00:00Z",
+            endTime="2015-01-01T00:00:00Z",
+        ),
+        Relation(
+            relatedEntityId="p_multi",
+            startTime="2005-01-01T00:00:00Z",
+            endTime="2009-12-31T00:00:00Z",
+        ),
+        Relation(
+            relatedEntityId="p_multi", startTime="2022-01-01T00:00:00Z", endTime=""
+        ),
+    ]
+
+    mock_opengin_service.get_entities.side_effect = [
+        [],
+        [],  # no gazettes for either
+        [Entity(id="p_old", name="Old President")],
+        [Entity(id="p_multi", name="Multi-term President")],
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
+        result = await organisation_service.fetch_presidents()
+
+        presidents = result["body"]
+
+        # p_multi should be first because 2022 > 2010
+        assert presidents[0]["id"] == "p_multi"
+        assert presidents[1]["id"] == "p_old"
+
+
+@pytest.mark.asyncio
+async def test_fetch_presidents_internal_error(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.fetch_relation.side_effect = Exception("Database down")
+
+    with pytest.raises(InternalServerError):
+        await organisation_service.fetch_presidents()
