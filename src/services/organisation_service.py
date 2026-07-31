@@ -1166,11 +1166,10 @@ class OrganisationService:
                 ):
                     term_index += 1
 
-                if (
-                    term_index < number_of_terms
-                    and all_terms[term_index]["start"] <= gazette_date
-                ):
-                    term_dict = all_terms[term_index]["tenure_data"]
+                for x in range(term_index, number_of_terms):
+                    if all_terms[x]["start"] > gazette_date:
+                        break
+                    term_dict = all_terms[x]["tenure_data"]
                     term_dict["gazetteList"].append(
                         {"date": gazette_date, "idList": gazettes_by_date[gazette_date]}
                     )
