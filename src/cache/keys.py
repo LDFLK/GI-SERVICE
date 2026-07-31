@@ -21,6 +21,11 @@ def entity_key(entity_id: str, *, prefix: str = DEFAULT_KEY_PREFIX) -> str:
     return f"{prefix}:entity:{entity_id}"
 
 
+def entities_query_key(entity: dict[str, Any], *, prefix: str = DEFAULT_KEY_PREFIX) -> str:
+    """Key for get_entities search payloads (id, name, kind, …) — full dump hashed."""
+    return f"{prefix}:entities:{_stable_hash(entity)}"
+
+
 def relation_key(
     entity_id: str,
     relation: dict[str, Any],

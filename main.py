@@ -10,7 +10,7 @@ from src.core import settings
 from fastapi.middleware.cors import CORSMiddleware
 from src.middleware import ThrottlingMiddleware
 from src.utils import http_client
-from src.cache import cache
+from src.cache import close_cache, connect_cache
 from contextlib import asynccontextmanager
 
 
@@ -18,9 +18,9 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     # Same lifecycle as HTTP: open shared resources once per worker, close on shutdown
     await http_client.start()
-    await cache.connect()
+    await connect_cache()  # Redis connect + wire SingleFlight locks when enabled
     yield
-    await cache.close()
+    await close_cache()
     await http_client.close()
 
 

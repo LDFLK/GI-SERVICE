@@ -1,8 +1,8 @@
 """
-App-wide cache singleton — same lifecycle idea as src.utils.http_client.
+App-wide cache + single-flight singletons — same lifecycle idea as http_client.
 
-Built once from Settings at import time; connect()/close() run in main lifespan.
-Do not construct a new cache inside per-request Depends factories.
+Built once per uvicorn worker; connect()/close() run in main lifespan.
+Do not construct a new cache/SingleFlight inside per-request Depends factories.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ import logging
 from src.cache.null_cache import NullCache
 from src.cache.protocol import CacheBackend
 from src.cache.redis_cache import RedisCache
+from src.cache.singleflight import SingleFlight
 from src.core import settings
 
 logger = logging.getLogger(__name__)
@@ -26,5 +27,20 @@ def build_cache() -> CacheBackend:
     return NullCache()
 
 
-# Module-level singleton — one per uvicorn worker process
+# Module-level singletons — one per uvicorn worker process
 cache: CacheBackend = build_cache()
+# Shared so concurrent requests in this worker coalesce on the same Future map
+singleflight = SingleFlight()
+
+
+async def connect_cache() -> None:
+    """Open Redis (if any) and attach client to SingleFlight for cross-worker locks."""
+    await cache.connect()
+    if isinstance(cache, RedisCache):
+        singleflight._redis = cache.client
+
+
+async def close_cache() -> None:
+    if isinstance(cache, RedisCache):
+        singleflight._redis = None
+    await cache.close()
