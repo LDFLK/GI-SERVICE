@@ -19,8 +19,8 @@ paths:
     get:
       tags:
         - Organization
-      summary: Get all president list with terms
-      description: Returns the list of presidents and terms.
+      summary: Get all presidents with their term dates and gazettes sorted by date.
+      description: Returns a sorted list of presidents with their term dates and corresponding gazette ids and dates.
       operationId: getPresidents
       responses:
         "200":
@@ -641,63 +641,6 @@ paths:
           description: Bad request
         "404":
           description: Not found
-        "500":
-          description: Server Error
-
-  /v1/presidents-by-range:
-    post:
-      tags:
-        - Organization
-      summary: Get a list of presidents for a given time range.
-      description: Returns a list of presidents for a given time range.
-      operationId: getPresidentsForRange
-      requestBody:
-        required: true
-        description: This request body corresponds to the date range used to retrieve the president list.
-        content:
-          application/json:
-            schema:
-              type: object
-              description: required both startDate and endDate for the range
-              properties:
-                startDate:
-                  type: object
-                  required:
-                    - date
-                  properties:
-                    date:
-                      type: string
-                endDate:
-                  type: object
-                  required:
-                    - date
-                  properties:
-                    date:
-                      type: string
-      responses:
-        "200":
-          description: Successfully returned
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  body:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/President"
-              example:
-                body:
-                  - name: Anura Kumara Dissanayake
-                    id: 2403-03-01_cit_1
-                    tenureList:
-                      - startDate: 2024-09-23T00:00:00Z
-                        endDate: ""
-                        gazetteList:
-                          - gazetteId: 2411-09
-                            date: 2024-11-18T00:00:00Z
-                          - gazetteId: 2412-03
-                            date: 2024-12-13T00:00:00Z
         "500":
           description: Server Error
 
