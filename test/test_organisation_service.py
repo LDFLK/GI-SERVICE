@@ -1360,3 +1360,48 @@ async def test_fetch_presidents_internal_error(
 
     with pytest.raises(InternalServerError):
         await organisation_service.fetch_presidents()
+
+@pytest.mark.asyncio
+async def test_fetch_presidents_gazette_on_last_day_of_tenure_is_included(
+    organisation_service, mock_opengin_service
+):
+    """
+    A gazette published on the EXACT endDate of a tenure must be included
+    in that tenure's gazetteList.
+    """
+    # p1 has a single tenure ending on 2022-01-01
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(
+            relatedEntityId="p1",
+            startTime="2020-01-01T00:00:00Z",
+            endTime="2022-01-01T00:00:00Z",  # last day is 2022-01-01
+        ),
+    ]
+
+    # The gazette is published on the exact last day of p1's tenure
+    mock_opengin_service.get_entities.side_effect = [
+        [Entity(created="2022-01-01T00:00:00Z", name="last_day_gazette")],  # org gazettes
+        [],  # person gazettes
+        [Entity(id="p1", name="President One")],  # p1 name fetch
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
+        result = await organisation_service.fetch_presidents()
+
+        presidents = result["body"]
+        assert len(presidents) == 1
+        president = presidents[0]
+        assert president["id"] == "p1"
+        assert president["name"] == "President One"
+        assert len(president["tenureList"]) == 1
+
+        tenure = president["tenureList"][0]
+        assert tenure["endDate"] == "2022-01-01"
+
+        # The gazette on the exact last day must be INCLUDED, not dropped
+        assert len(tenure["gazetteList"]) == 1
+        assert tenure["gazetteList"][0]["date"] == "2022-01-01"
+        assert "last_day_gazette" in tenure["gazetteList"][0]["idList"]

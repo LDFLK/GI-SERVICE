@@ -1,3 +1,4 @@
+from _pytest import pytester_assertions
 from src.enums import KindMinorEnum
 from src.enums import KindMajorEnum
 from src.models import Kind
@@ -1084,7 +1085,11 @@ class OrganisationService:
 
                 start_date = relation.startTime.split("T")[0] if relation.startTime else ""
                 end_date = relation.endTime.split("T")[0] if relation.endTime else ""
-
+                
+                if not start_date:
+                    logger.warning(f"Invalid start date for president relation: {president_id}")
+                    continue
+                
                 tenure = {"startDate": start_date, "endDate": end_date, "gazetteList": []}
 
                 if president_id not in presidents_map:
