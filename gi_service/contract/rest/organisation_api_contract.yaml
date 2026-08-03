@@ -869,10 +869,8 @@ paths:
                 type: object
                 properties:
                   body:
-                    type: array
-                    items:
-                      type: object
-                      properties:
+                    type: object
+                    properties:
                         totalbodies:
                           type: integer
                         newbodies:
