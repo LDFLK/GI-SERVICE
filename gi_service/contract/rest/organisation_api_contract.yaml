@@ -845,7 +845,7 @@ paths:
       tags:
         - Organization
       summary: Get active bodies for a department.
-      description: Returns a list of bodies under a given department and a given date.
+      description: Returns a list of bodies under a given department and a date.
       operationId: getBodiesByDepartment
       parameters:
         - name: department_id
@@ -855,7 +855,7 @@ paths:
             type: string
       requestBody:
         required: true
-        description: This request body corresponds to the date used to retrive the list of active bodies.
+        description: This request body corresponds to the date used to retrieve the list of active bodies.
         content:
           application/json:
             schema:
@@ -871,11 +871,11 @@ paths:
                   body:
                     type: object
                     properties:
-                        totalbodies:
+                        totalBodies:
                           type: integer
-                        newbodies:
+                        newBodies:
                           type: integer
-                        bodieslist:
+                        bodiesList:
                           type: array
                           items:
                             type: object
@@ -892,9 +892,9 @@ paths:
 
               example:
                 body:
-                  - totalbodies: 2
-                    newbodies: 2
-                    bodieslist:
+                  - totalBodies: 2
+                    newBodies: 2
+                    bodiesList:
                       - name: National Police Academy
                         id: 2187-27_bod_4
                         isNew: false
