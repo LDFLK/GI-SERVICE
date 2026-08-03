@@ -539,14 +539,13 @@ components:
           description: "When this person's appointment relation started"
           example: "2024-11-18T00:00:00Z"
         end_time:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: "When the relation ended; null if still active"
           example: null
         is_new:
           type: boolean
-          description: "True if start_time falls on the queried active_at date"
+          description: "True if start_time falls on the queried date"
           example: false
         is_president:
           type: boolean
