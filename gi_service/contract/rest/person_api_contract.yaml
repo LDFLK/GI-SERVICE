@@ -201,9 +201,9 @@ paths:
                     type: string
               example:
                 detail: "An unexpected error occurred"
-  
+ 
   /v1/ministry/{ministry_id}/persons:
-    get:
+    post:
       tags:
         - Person
       summary: Get persons assigned to a ministry on a given date.
@@ -271,7 +271,7 @@ paths:
                   detail:
                     type: string
               example:
-                detail: "ministry_id and active_at are required"
+                detail: "ministry_id and date are required"
 
         "404":
           description: Ministry not found
@@ -482,7 +482,7 @@ components:
           description: "List of gazette IDs published on this date"
           example: ["gzt-101", "gzt-102"]
  
-  MinistryPersonsResponse:
+    MinistryPersonsResponse:
       type: object
       required:
         - ministry_name
@@ -514,7 +514,7 @@ components:
           items:
             $ref: "#/components/schemas/MinistryPersonSummary"
 
-  MinistryPersonSummary:
+    MinistryPersonSummary:
       type: object
       required:
         - id
