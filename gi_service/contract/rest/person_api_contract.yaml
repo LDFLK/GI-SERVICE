@@ -201,7 +201,101 @@ paths:
                     type: string
               example:
                 detail: "An unexpected error occurred"
+  
+  /v1/ministry/{ministry_id}/persons:
+    get:
+      tags:
+        - Person
+      summary: Get persons assigned to a ministry on a given date.
+      description: Returns the enriched list of persons appointed to a given ministry as of a specific date, along with precomputed summary counts and president/new-appointment flags.
+      operationId: getPortfolioPerson
 
+      parameters:
+        - name: ministry_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the ministry
+          example: "min-12"
+       
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - date
+              properties:
+                date:
+                  type: string
+                  format: date-time
+                  description: Date to query persons as-of
+                  example: "2026-04-21T00:00:00Z"
+                relation_name:
+                  type: string
+                  enum:
+                    - AS_APPOINTED
+                  default: AS_APPOINTED
+                  description: Relation type filter
+
+      responses:
+        "200":
+          description: Successfully returned ministry persons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MinistryPersonsResponse"
+              example:
+                ministry_name: "Minister of Women and Child Affairs"
+                total_count: 1
+                new_count: 0
+                theme_color_light: "#4A90E2"
+                persons:
+                  - id: "cit-16"
+                    name: "Saroja Savithri Paulraj"
+                    start_time: "2024-11-18T00:00:00Z"
+                    end_time: null
+                    is_new: false
+                    is_president: false
+                    profile_url: "/person-profile/cit-16"
+
+        "400":
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+              example:
+                detail: "ministry_id and active_at are required"
+
+        "404":
+          description: Ministry not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+              example:
+                detail: "Ministry not found"
+
+        "500":
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+              example:
+                detail: "An unexpected error occurred"
 
 components:
   schemas:
@@ -387,3 +481,78 @@ components:
             type: string
           description: "List of gazette IDs published on this date"
           example: ["gzt-101", "gzt-102"]
+ 
+  MinistryPersonsResponse:
+      type: object
+      required:
+        - ministry_name
+        - total_count
+        - new_count
+        - theme_color_light
+        - persons
+      properties:
+        ministry_name:
+          type: string
+          description: "Human-readable name of the queried ministry"
+          example: "Minister of Women and Child Affairs"
+        total_count:
+          type: integer
+          minimum: 0
+          description: "Total number of persons — powers 'Total People' in Key Highlights"
+          example: 1
+        new_count:
+          type: integer
+          minimum: 0
+          description: "Count of persons where is_new is true — powers 'New People' in Key Highlights"
+          example: 0
+        theme_color_light:
+          type: string
+          description: "Hex color for the currently selected president, used for badges/icons/links"
+          example: "#4A90E2"
+        persons:
+          type: array
+          items:
+            $ref: "#/components/schemas/MinistryPersonSummary"
+
+  MinistryPersonSummary:
+      type: object
+      required:
+        - id
+        - name
+        - start_time
+        - end_time
+        - is_new
+        - is_president
+        - profile_url
+      properties:
+        id:
+          type: string
+          description: "Person ID"
+          example: "cit-16"
+        name:
+          type: string
+          description: "Fully resolved, human-readable name (decoded server-side)"
+          example: "Saroja Savithri Paulraj"
+        start_time:
+          type: string
+          format: date-time
+          description: "When this person's appointment relation started"
+          example: "2024-11-18T00:00:00Z"
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: "When the relation ended; null if still active"
+          example: null
+        is_new:
+          type: boolean
+          description: "True if start_time falls on the queried active_at date"
+          example: false
+        is_president:
+          type: boolean
+          description: "True if this person is the currently selected president"
+          example: false
+        profile_url:
+          type: string
+          description: "Relative path to this person's profile page"
+          example: "/person-profile/cit-16"
