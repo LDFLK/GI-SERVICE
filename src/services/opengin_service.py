@@ -6,7 +6,6 @@ from src.cache import (
     SingleFlight,
     apply_jitter,
     cache as app_cache,
-    choose_ttl,
     entities_query_key,
     relation_key,
     singleflight as app_singleflight,
@@ -59,15 +58,8 @@ class OpenGINService:
     def session(self) -> ClientSession:
         return http_client.session
 
-    def _ttl(self, active_at: str | None = None) -> int:
-        return apply_jitter(
-            choose_ttl(
-                active_at,
-                historical_seconds=settings.CACHE_TTL_HISTORICAL_SECONDS,
-                recent_seconds=settings.CACHE_TTL_RECENT_SECONDS,
-                entity_seconds=settings.CACHE_TTL_ENTITY_SECONDS,
-            )
-        )
+    def _ttl(self) -> int:
+        return apply_jitter(settings.CACHE_TTL_SECONDS)
 
     async def get_entities(self, entity: Entity):
         """Read-through cache around OpenGIN entity search."""
@@ -143,8 +135,7 @@ class OpenGINService:
         key = relation_key(
             stripped_entity_id, rel_payload, prefix=settings.CACHE_KEY_PREFIX
         )
-        # Historical activeAt → longer TTL; recent/missing → shorter
-        ttl = self._ttl(relation.activeAt or None)
+        ttl = self._ttl()
 
         async def fetch():
             models = await self._fetch_relation_uncached(stripped_entity_id, relation)

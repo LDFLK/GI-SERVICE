@@ -18,10 +18,7 @@ class Settings(BaseSettings):
     CACHE_ENABLED: bool = False
     REDIS_URL: str = ""
     CACHE_KEY_PREFIX: str = "gi:v1"
-    CACHE_TTL_HISTORICAL_SECONDS: int = 21_600  # 6h
-    CACHE_TTL_RECENT_SECONDS: int = 120  # 2m
-    CACHE_TTL_ENTITY_SECONDS: int = 3_600  # 1h
-    CACHE_TTL_NEGATIVE_SECONDS: int = 45
+    CACHE_TTL_SECONDS: int = 604_800  # 7 days
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

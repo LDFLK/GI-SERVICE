@@ -12,12 +12,7 @@ from src.cache.keys import (
     relation_key,
 )
 from src.cache.ttl import (
-    CACHE_TTL_ENTITY_SECONDS,
-    CACHE_TTL_HISTORICAL_SECONDS,
-    CACHE_TTL_NEGATIVE_SECONDS,
-    CACHE_TTL_RECENT_SECONDS,
     apply_jitter,
-    choose_ttl,
 )
 from src.cache.singleflight import SingleFlight
 
@@ -38,10 +33,5 @@ __all__ = [
     "relation_key",
     "attributes_key",
     "metadata_key",
-    "CACHE_TTL_HISTORICAL_SECONDS",
-    "CACHE_TTL_RECENT_SECONDS",
-    "CACHE_TTL_ENTITY_SECONDS",
-    "CACHE_TTL_NEGATIVE_SECONDS",
-    "choose_ttl",
     "apply_jitter",
 ]

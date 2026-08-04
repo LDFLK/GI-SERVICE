@@ -1,20 +1,16 @@
 import asyncio
-from datetime import datetime, timezone, timedelta
 
 import pytest
 
 from src.cache import (
-    CACHE_TTL_ENTITY_SECONDS,
-    CACHE_TTL_HISTORICAL_SECONDS,
-    CACHE_TTL_RECENT_SECONDS,
     InMemoryCache,
     NullCache,
     apply_jitter,
     attributes_key,
-    choose_ttl,
     entity_key,
     relation_key,
 )
+from src.core import settings
 
 
 def test_entity_key_format():
@@ -45,18 +41,8 @@ def test_attributes_key_normalizes_dates_and_sorts_fields():
     assert k1 == k2
 
 
-def test_choose_ttl_historical():
-    old = (datetime.now(timezone.utc).date() - timedelta(days=30)).isoformat()
-    assert choose_ttl(old) == CACHE_TTL_HISTORICAL_SECONDS
-
-
-def test_choose_ttl_recent():
-    today = datetime.now(timezone.utc).date().isoformat()
-    assert choose_ttl(today) == CACHE_TTL_RECENT_SECONDS
-
-
-def test_choose_ttl_missing_uses_entity_default():
-    assert choose_ttl(None) == CACHE_TTL_ENTITY_SECONDS
+def test_cache_ttl_default_is_seven_days():
+    assert settings.CACHE_TTL_SECONDS == 604_800
 
 
 def test_apply_jitter_stays_within_10_percent():
