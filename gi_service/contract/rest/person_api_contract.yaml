@@ -202,6 +202,7 @@ paths:
               example:
                 detail: "An unexpected error occurred"
 
+
 components:
   schemas:
     MinistryHistoryItem:

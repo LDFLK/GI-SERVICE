@@ -1024,3 +1024,170 @@ class OrganisationService:
         except Exception as e:
             logger.error(f"Error in enrich_department_timeline: {e}")
             raise InternalServerError("An unexpected error occurred") from e
+
+    # helper: enrich body
+    async def enrich_body_item(self, body_relation: Relation, selected_date: str):
+        body_id = body_relation.relatedEntityId
+
+        if not body_id:
+            raise ValueError(
+                f"enrich_body_item: relation has no relatedEntityId — relation={body_relation!r}"
+            )
+
+        try:
+            entity = Entity(id=body_id)
+            body_data = await self.opengin_service.get_entities(entity=entity)
+        except NotFoundError:
+            raise NotFoundError(
+                f"enrich_body_item: entity not found for body_id={body_id}"
+            )
+        except Exception as e:
+            raise InternalServerError(
+                f"enrich_body_item: get_entities failed for body_id={body_id}: {e}"
+            ) from e
+
+        if not body_data:
+            raise NotFoundError(
+                f"enrich_body_item: get_entities returned empty list for body_id={body_id}"
+            )
+
+        first_body = body_data[0]
+
+        try:
+            name = Util.decode_protobuf_attribute_name(first_body.name)
+        except Exception as e:
+            raise InternalServerError(
+                f"enrich_body_item: failed to decode name for body_id={body_id}, raw name={first_body.name!r}: {e}"
+            ) from e
+
+        body_start_date = body_relation.startTime
+        normalized_selected_date = Util.normalize_timestamp(selected_date)
+        is_new = body_start_date == normalized_selected_date
+
+        return {
+            "id": body_id,
+            "name": name,
+            "isNew": is_new,
+        }
+
+    # API: Bodies by departments
+    async def bodies_by_department(self, department_id: str, selected_date: str):
+        """
+        Docstring for bodies_by_department
+
+        :param department_id: Department Id
+        :param selected_date: Selected Date
+
+        output type:
+        {
+            "totalBodies": 0,
+            "newBodies": 0,
+            "bodiesList": [
+                {
+                "name": "",
+                "id": "",
+                "isNew": false,
+                },
+            ]
+        }
+        """
+
+        if department_id is None or department_id == "":
+            raise BadRequestError("Department ID is required")
+
+        if selected_date is None or selected_date == "":
+            raise BadRequestError("Selected date is required")
+
+        normalized_date = Util.normalize_timestamp(selected_date)
+        logger.info(
+            f"bodies_by_department: starting — department_id={department_id!r}, "
+            f"selected_date={selected_date!r}, normalized_date={normalized_date!r}"
+        )
+
+        relation = Relation(
+            name=RelationNameEnum.AS_BODY.value,
+            activeAt=normalized_date,
+            direction=RelationDirectionEnum.OUTGOING.value,
+        )
+
+        try:
+            body_relation_list = await self.opengin_service.fetch_relation(
+                entityId=department_id, relation=relation
+            )
+        except BadRequestError:
+            raise
+        except NotFoundError:
+            raise
+        except Exception as e:
+            # This is the layer that would have caught the Neo4j DateTime parse error.
+            logger.error(
+                f"bodies_by_department: fetch_relation FAILED — department_id={department_id!r}, "
+                f"relation={relation.model_dump()!r}, error={e!r}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: upstream fetch_relation failed for department_id={department_id}: {e}"
+            ) from e
+
+        logger.info(
+            f"bodies_by_department: fetch_relation OK — found {len(body_relation_list)} "
+            f"raw relations for department_id={department_id!r}"
+        )
+
+        if not body_relation_list:
+            logger.info(
+                f"bodies_by_department: no relations found for department_id={department_id!r} — returning empty result"
+            )
+            return {
+                "totalBodies": 0,
+                "newBodies": 0,
+                "bodiesList": [],
+            }
+
+        enrich_body_tasks = [
+            self.enrich_body_item(
+                body_relation=body_relation, selected_date=selected_date
+            )
+            for body_relation in body_relation_list
+        ]
+
+        results = await asyncio.gather(*enrich_body_tasks, return_exceptions=True)
+
+        failures = []
+        bodies = []
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                related_id = body_relation_list[i].relatedEntityId
+                logger.error(
+                    f"bodies_by_department: enrich_body_item FAILED for relatedEntityId={related_id!r}: {r!r}"
+                )
+                failures.append({"relatedEntityId": related_id, "error": str(r)})
+            else:
+                bodies.append(r)
+
+        if failures and not bodies:
+            # every single enrichment failed — this is a real error, not "zero bodies"
+            raise InternalServerError(
+                f"bodies_by_department: all {len(failures)} enrichment(s) failed for "
+                f"department_id={department_id}: {failures}"
+            )
+
+        if failures:
+            logger.warning(
+                f"bodies_by_department: {len(failures)} of {len(results)} enrichments failed "
+                f"for department_id={department_id!r}: {failures}"
+            )
+
+        new_bodies = sum(1 for d in bodies if d.get("isNew"))
+
+        finalResult = {
+            "totalBodies": len(bodies),
+            "newBodies": new_bodies,
+            "bodiesList": bodies,
+        }
+
+        logger.info(
+            f"bodies_by_department: done — department_id={department_id!r}, "
+            f"totalBodies={finalResult['totalBodies']}, newBodies={finalResult['newBodies']}"
+        )
+
+        return finalResult
