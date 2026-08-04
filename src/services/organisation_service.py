@@ -233,11 +233,14 @@ class OrganisationService:
             raise BadRequestError("Selected date is required")
 
         try:
+<<<<<<< HEAD
             try:
                 await self.opengin_service.get_entities(entity=Entity(id=president_id))
             except NotFoundError as e:
                 raise NotFoundError("President not found for the given ID") from e
 
+=======
+>>>>>>> 1bae3a1 (refactor: fixed formatting using ruff)
             # First retrieve the relation list of the active portfolios under given president and given date
             relation = Relation(
                 name=RelationNameEnum.AS_MINISTER.value,
@@ -286,7 +289,11 @@ class OrganisationService:
                 else:
                     successful_portfolios.append(results[i])
 
+<<<<<<< HEAD
             if results and len(exceptions) == len(results):
+=======
+            if len(exceptions) == len(results):
+>>>>>>> 1bae3a1 (refactor: fixed formatting using ruff)
                 raise InternalServerError("Failed to process all portfolios")
 
             # Calculate final counts
@@ -1030,20 +1037,26 @@ class OrganisationService:
         body_id = body_relation.relatedEntityId
 
         if not body_id:
-            raise ValueError(f"enrich_body_item: relation has no relatedEntityId — relation={body_relation!r}")
+            raise ValueError(
+                f"enrich_body_item: relation has no relatedEntityId — relation={body_relation!r}"
+            )
 
         try:
             entity = Entity(id=body_id)
             body_data = await self.opengin_service.get_entities(entity=entity)
         except NotFoundError:
-            raise NotFoundError(f"enrich_body_item: entity not found for body_id={body_id}")
+            raise NotFoundError(
+                f"enrich_body_item: entity not found for body_id={body_id}"
+            )
         except Exception as e:
             raise InternalServerError(
                 f"enrich_body_item: get_entities failed for body_id={body_id}: {e}"
             ) from e
 
         if not body_data:
-            raise NotFoundError(f"enrich_body_item: get_entities returned empty list for body_id={body_id}")
+            raise NotFoundError(
+                f"enrich_body_item: get_entities returned empty list for body_id={body_id}"
+            )
 
         first_body = body_data[0]
 
@@ -1064,8 +1077,7 @@ class OrganisationService:
             "isNew": is_new,
         }
 
-
-    #API: Bodies by departments
+    # API: Bodies by departments
     async def bodies_by_department(self, department_id: str, selected_date: str):
         """
         Docstring for bodies_by_department
@@ -1102,13 +1114,12 @@ class OrganisationService:
         relation = Relation(
             name=RelationNameEnum.AS_BODY.value,
             activeAt=normalized_date,
-            direction=RelationDirectionEnum.OUTGOING.value
+            direction=RelationDirectionEnum.OUTGOING.value,
         )
 
         try:
             body_relation_list = await self.opengin_service.fetch_relation(
-                entityId=department_id,
-                relation=relation
+                entityId=department_id, relation=relation
             )
         except BadRequestError:
             raise
@@ -1130,7 +1141,9 @@ class OrganisationService:
         )
 
         if not body_relation_list:
-            logger.info(f"bodies_by_department: no relations found for department_id={department_id!r} — returning empty result")
+            logger.info(
+                f"bodies_by_department: no relations found for department_id={department_id!r} — returning empty result"
+            )
             return {
                 "totalBodies": 0,
                 "newBodies": 0,
@@ -1138,7 +1151,9 @@ class OrganisationService:
             }
 
         enrich_body_tasks = [
-            self.enrich_body_item(body_relation=body_relation, selected_date=selected_date)
+            self.enrich_body_item(
+                body_relation=body_relation, selected_date=selected_date
+            )
             for body_relation in body_relation_list
         ]
 
