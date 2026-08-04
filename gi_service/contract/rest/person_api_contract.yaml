@@ -211,13 +211,13 @@ paths:
       operationId: getPortfolioPerson
 
       parameters:
-        - name: ministry_id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: ID of the ministry
-          example: "min-12"
+        name: ministry_id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: ID of the ministry
+        example: "min-12"
        
       requestBody:
         required: true
@@ -226,7 +226,7 @@ paths:
             schema:
               type: object
               required:
-                - date
+                date
               properties:
                 date:
                   type: string
@@ -485,10 +485,10 @@ components:
     MinistryPersonsResponse:
       type: object
       required:
-        - ministry_name
-        - total_count
-        - new_count
-        - theme_color_light
+        ministry_name
+        total_count
+        new_count
+        theme_color_light
         - persons
       properties:
         ministry_name:
