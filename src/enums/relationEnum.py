@@ -9,6 +9,7 @@ class RelationNameEnum(Enum):
     AS_PRIME_MINISTER = "AS_PRIME_MINISTER"
     AS_PRESIDENT = "AS_PRESIDENT"
     AS_DEPARTMENT = "AS_DEPARTMENT"
+    AS_BODY = "AS_BODY"
 
 # relation directions 
 class RelationDirectionEnum(Enum):
