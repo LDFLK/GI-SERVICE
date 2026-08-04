@@ -34,7 +34,12 @@ singleflight = SingleFlight()
 
 
 async def connect_cache() -> None:
-    """Open Redis (if any) and attach client to SingleFlight for cross-worker locks."""
+    """Open Redis (if any) and attach client to SingleFlight for cross-worker locks.
+
+    When CACHE_ENABLED selects Redis, connect failures propagate and abort startup.
+    Use CACHE_ENABLED=false if you intentionally want to run without Redis.
+    Runtime get/set still fail-open if Redis dies after a successful connect.
+    """
     await cache.connect()
     if isinstance(cache, RedisCache):
         singleflight._redis = cache.client

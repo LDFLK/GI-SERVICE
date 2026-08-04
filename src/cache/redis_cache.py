@@ -1,4 +1,8 @@
-"""Redis-backed cache using redis.asyncio (connect/close wired via app lifespan)."""
+"""Redis-backed cache using redis.asyncio (connect/close wired via app lifespan).
+
+Redis is best-effort: get/set/delete failures are logged and swallowed so the
+API can keep serving from OpenGIN (fail-open).
+"""
 
 from __future__ import annotations
 
@@ -7,8 +11,12 @@ import logging
 from typing import Any
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
+
+# Connection / protocol failures we treat as "cache unavailable"
+_REDIS_SOFT_ERRORS = (RedisError, ConnectionError, OSError, TimeoutError)
 
 
 class RedisCache:
@@ -34,21 +42,45 @@ class RedisCache:
 
     async def close(self) -> None:
         if self._client is not None:
-            await self._client.aclose()
+            try:
+                await self._client.aclose()
+            except _REDIS_SOFT_ERRORS as exc:
+                logger.warning("Redis close failed: %s", exc)
             self._client = None
             logger.info("Redis cache closed")
 
     async def get(self, key: str) -> Any | None:
-        raw = await self.client.get(key)
-        if raw is None:
+        if self._client is None:
             return None
-        return json.loads(raw)
+        try:
+            raw = await self._client.get(key)
+            if raw is None:
+                return None
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError) as exc:
+            logger.warning("Redis get bad payload key=%s: %s", key, exc)
+            return None
+        except _REDIS_SOFT_ERRORS as exc:
+            logger.warning("Redis get failed key=%s: %s", key, exc)
+            return None
 
     async def set(self, key: str, value: Any, ttl_seconds: int) -> None:
-        if ttl_seconds <= 0:
-            await self.delete(key)
+        if self._client is None:
             return
-        await self.client.set(key, json.dumps(value), ex=ttl_seconds)
+        try:
+            if ttl_seconds <= 0:
+                await self.delete(key)
+                return
+            await self._client.set(key, json.dumps(value), ex=ttl_seconds)
+        except (TypeError, ValueError) as exc:
+            logger.warning("Redis set encode failed key=%s: %s", key, exc)
+        except _REDIS_SOFT_ERRORS as exc:
+            logger.warning("Redis set failed key=%s: %s", key, exc)
 
     async def delete(self, key: str) -> None:
-        await self.client.delete(key)
+        if self._client is None:
+            return
+        try:
+            await self._client.delete(key)
+        except _REDIS_SOFT_ERRORS as exc:
+            logger.warning("Redis delete failed key=%s: %s", key, exc)

@@ -18,8 +18,7 @@ services:
     environment:
       # Hostname `redis` is the compose service name (not localhost)
       REDIS_URL: redis://redis:6379/0
-      # Keep false until we wrap OpenGIN; flip to true to exercise Redis
-      CACHE_ENABLED: "false"
+      CACHE_ENABLED: "true"
     volumes:
       - .:/app
     depends_on:

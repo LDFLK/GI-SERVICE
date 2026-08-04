@@ -45,20 +45,28 @@ class SingleFlight:
     async def _try_acquire_lock(self, key: str) -> bool:
         if self._redis is None:
             return True
-        # SET lock NX EX — only the first caller wins
-        return bool(
-            await self._redis.set(
-                self._lock_key(key),
-                "1",
-                nx=True,
-                ex=self._lock_ttl,
+        try:
+            # SET lock NX EX — only the first caller wins
+            return bool(
+                await self._redis.set(
+                    self._lock_key(key),
+                    "1",
+                    nx=True,
+                    ex=self._lock_ttl,
+                )
             )
-        )
+        except Exception as exc:
+            # Fail-open: skip distributed lock; local single-flight still applies
+            logger.warning("Redis lock acquire failed key=%s: %s", key, exc)
+            return True
 
     async def _release_lock(self, key: str) -> None:
         if self._redis is None:
             return
-        await self._redis.delete(self._lock_key(key))
+        try:
+            await self._redis.delete(self._lock_key(key))
+        except Exception as exc:
+            logger.warning("Redis lock release failed key=%s: %s", key, exc)
 
     # Repeatedly poll the cache until we get a value or time out.
     async def _wait_for_cache(self, cache: CacheBackend, key: str) -> Any | None:
@@ -108,6 +116,8 @@ class SingleFlight:
         except Exception as exc:
             if not fut.done():
                 fut.set_exception(exc)
+                # Avoid "Future exception was never retrieved" when no waiters joined
+                fut.exception()
             raise
         finally:
             if self._inflight.get(key) is fut:
@@ -139,7 +149,7 @@ class SingleFlight:
             if cached is not None:
                 return cached
 
-            # If we still could not get the lock or get a value from the cache, fetch the data ourselves.
+            # If we still could not get a value from the cache, fetch the data ourselves.
             value = await fetch()
             if ttl_seconds > 0:
                 await cache.set(key, value, ttl_seconds)
