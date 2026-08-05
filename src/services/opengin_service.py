@@ -1,6 +1,15 @@
 from google.api_core import retry_async
 from aiohttp import ClientSession
 import logging
+from src.cache import (
+    CacheBackend,
+    SingleFlight,
+    apply_jitter,
+    cache as app_cache,
+    entities_query_key,
+    relation_key,
+    singleflight as app_singleflight,
+)
 from src.core import settings
 from src.exception import BadRequestError, InternalServerError, NotFoundError
 from src.models import AttributeFilterRecords, Entity, Relation
@@ -33,21 +42,49 @@ api_retry_decorator = retry_async.AsyncRetry(
 class OpenGINService:
     """
     The OpenGINService directly interfaces with the OpenGIN APIs to retrieve data.
+
+    get_entities / fetch_relation are read-through cached (NullCache when disabled).
     """
 
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        cache: CacheBackend | None = None,
+        singleflight: SingleFlight | None = None,
+    ):
+        # Default to lifespan singletons so routers can keep doing OpenGINService()
+        self._cache = cache if cache is not None else app_cache
+        self._sf = singleflight if singleflight is not None else app_singleflight
 
     @property
     def session(self) -> ClientSession:
         return http_client.session
 
-    @api_retry_decorator
-    async def get_entities(self, entity: Entity):
+    def _ttl(self) -> int:
+        return apply_jitter(settings.CACHE_TTL_SECONDS)
 
+    async def get_entities(self, entity: Entity):
+        """Read-through cache around OpenGIN entity search."""
         if not entity:
             raise BadRequestError("Entity is required")
 
+        payload = entity.model_dump(mode="json")
+        key = entities_query_key(payload, prefix=settings.CACHE_KEY_PREFIX)
+        ttl = self._ttl()
+
+        async def fetch():
+            models = await self._get_entities_uncached(entity)
+            # Store JSON-friendly dicts — Redis cannot hold Pydantic models
+            return [m.model_dump(mode="json") for m in models]
+
+        logger.debug("get_entities key=%s", key)
+        raw = await self._sf.get_or_fetch(
+            key, cache=self._cache, fetch=fetch, ttl_seconds=ttl
+        )
+        return [Entity.model_validate(item) for item in raw]
+
+    @api_retry_decorator
+    async def _get_entities_uncached(self, entity: Entity):
+        """HTTP-only path; retries apply here, not on cache hits."""
         url = f"{settings.BASE_URL_QUERY}/v1/entities/search"
         headers = {"Content-Type": "application/json"}
         payload = entity.model_dump(mode="json")
@@ -85,17 +122,35 @@ class OpenGINService:
             logger.error(f"Read API Error: {str(e)}")
             raise InternalServerError("An unexpected error occurred") from e
 
-    @api_retry_decorator
     async def fetch_relation(self, entityId: str, relation: Relation):
-
+        """Read-through cache around OpenGIN relation fetch."""
         if not entityId or not relation:
-            raise BadRequestError("Entity ID is required")
+            raise BadRequestError("Entity ID and relation is required")
 
         stripped_entity_id = str(entityId).strip()
         if not stripped_entity_id:
             raise BadRequestError("Entity ID can not be empty")
 
-        url = f"{settings.BASE_URL_QUERY}/v1/entities/{stripped_entity_id}/relations"
+        rel_payload = relation.model_dump(mode="json")
+        key = relation_key(
+            stripped_entity_id, rel_payload, prefix=settings.CACHE_KEY_PREFIX
+        )
+        ttl = self._ttl()
+
+        async def fetch():
+            models = await self._fetch_relation_uncached(stripped_entity_id, relation)
+            return [m.model_dump(mode="json") for m in models]
+
+        logger.debug("fetch_relation key=%s", key)
+        raw = await self._sf.get_or_fetch(
+            key, cache=self._cache, fetch=fetch, ttl_seconds=ttl
+        )
+        return [Relation.model_validate(item) for item in raw]
+
+    @api_retry_decorator
+    async def _fetch_relation_uncached(self, entityId: str, relation: Relation):
+        """HTTP-only path; retries apply here, not on cache hits."""
+        url = f"{settings.BASE_URL_QUERY}/v1/entities/{entityId}/relations"
         headers = {"Content-Type": "application/json"}
         payload = relation.model_dump(mode="json")
 
