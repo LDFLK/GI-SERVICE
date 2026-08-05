@@ -1264,8 +1264,13 @@ async def test_enrich_body_item_is_new(
 
     assert result == {
         "id": "body_123",
+<<<<<<< HEAD
         "name": "decoded_name",
         "isNew": expected_is_new,
+=======
+        "name": "National Police Academy",
+        "isNew": True,
+>>>>>>> 450b247 (refactor: changed tests for the correct word)
         "type": "Council",
     }
 
@@ -1275,6 +1280,44 @@ async def test_enrich_body_item_is_new(
 
 
 @pytest.mark.asyncio
+<<<<<<< HEAD
+=======
+async def test_enrich_body_item_is_new_false(
+    organisation_service, mock_opengin_service
+):
+    body_relation = Relation(
+        relatedEntityId="body_123",
+        startTime="2020-01-01T00:00:00Z",
+        endTime="2024-10-27T00:00:00Z",
+    )
+    selected_date = "2023-10-27T00:00:00Z"
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(
+            id="body_123",
+            name="mocked_protobuf_name",
+            kind={"major": "Body", "minor": "Council"},
+        )
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        return_value="National Police Academy",
+    ):
+        result = await organisation_service.enrich_body_item(
+            body_relation=body_relation, selected_date=selected_date
+        )
+
+    assert result == {
+        "id": "body_123",
+        "name": "National Police Academy",
+        "isNew": False,
+        "type": "Council",
+    }
+
+
+@pytest.mark.asyncio
+>>>>>>> 450b247 (refactor: changed tests for the correct word)
 async def test_enrich_body_item_empty_minor_kind(
     organisation_service, mock_opengin_service
 ):
