@@ -166,11 +166,14 @@ class SingleFlight:
         token = await self._try_acquire_lock(key)
 
         # If we didn't get the lock, wait for someone else to fill the cache.
-        if token is None:
+        # Keep polling/retrying until we acquire — do not fetch without a lock
+        # while another worker still holds it (token is None). Fail-open returns
+        # _NO_REDIS_LOCK ("") which is not None, so that path does not loop.
+        while token is None:
             waited = await self._wait_for_cache(cache, key)
             if waited is not None:
                 return waited
-            # Timed out waiting for the other worker — try to take over
+            # Retry until the current lock expires or its owner fills the cache.
             token = await self._try_acquire_lock(key)
 
         try:

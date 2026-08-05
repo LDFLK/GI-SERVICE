@@ -61,8 +61,9 @@ async def test_redis_lock_loser_waits_for_cache():
     """Simulate another worker holding the lock; loser polls until cache fills."""
     cache = InMemoryCache()
     redis = AsyncMock()
-    # First caller (leader) gets the lock; loser does not
-    redis.set = AsyncMock(side_effect=[True, False])
+    # First caller (leader) gets the lock; subsequent acquires fail until lock released
+    acquire_results = iter([True, False, False, False])
+    redis.set = AsyncMock(side_effect=lambda *a, **k: next(acquire_results, False))
     redis.eval = AsyncMock(return_value=1)
 
     sf_leader = SingleFlight(redis_client=redis, poll_interval_seconds=0.01)
@@ -206,3 +207,32 @@ async def test_canceled_leader_cancels_waiters():
         await asyncio.wait_for(follower_task, timeout=1.0)
 
     assert await cache.get("k") is None
+
+
+@pytest.mark.asyncio
+async def test_lock_loser_does_not_fetch_without_lock():
+    """After poll timeout, keep retrying — do not fetch while Redis lock is held."""
+    cache = InMemoryCache()
+    redis = AsyncMock()
+    # Never grant the lock to this worker
+    redis.set = AsyncMock(return_value=False)
+    redis.eval = AsyncMock(return_value=1)
+
+    sf = SingleFlight(
+        redis_client=redis,
+        poll_interval_seconds=0.01,
+        poll_timeout_seconds=0.03,
+    )
+    fetch = AsyncMock(return_value={"should": "not-run"})
+
+    async def fill_cache_later():
+        await asyncio.sleep(0.08)
+        await cache.set("k", {"from": "other"}, ttl_seconds=60)
+
+    filler = asyncio.create_task(fill_cache_later())
+    result = await sf.get_or_fetch("k", cache=cache, fetch=fetch, ttl_seconds=60)
+    await filler
+
+    assert result == {"from": "other"}
+    fetch.assert_not_awaited()
+    assert redis.set.await_count >= 2  # initial miss + at least one retry
