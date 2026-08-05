@@ -253,13 +253,13 @@ paths:
                 total_count: 1
                 new_count: 0
                 persons:
-                  id: "cit-16"
-                  name: "Saroja Savithri Paulraj"
-                  start_time: "2024-11-18T00:00:00Z"
-                  end_time: null
-                  is_new: false
-                  is_president: false
-                  profile_url: "/person-profile/cit-16"
+                  - id: "cit-16"
+                    name: "Saroja Savithri Paulraj"
+                    start_time: "2024-11-18T00:00:00Z"
+                    end_time: null
+                    is_new: false
+                    is_president: false
+                    profile_url: "/person-profile/cit-16"
 
         "400":
           description: Bad request - Invalid parameters
