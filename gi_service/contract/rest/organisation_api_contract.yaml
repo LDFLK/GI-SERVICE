@@ -958,8 +958,6 @@ paths:
                 persons:
                   - id: "cit-16"
                     name: "Saroja Savithri Paulraj"
-                    start_time: "2024-11-18T00:00:00Z"
-                    end_time: null
                     is_new: false
                     is_president: false
 
