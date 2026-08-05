@@ -50,13 +50,15 @@ def attributes_key(
     prefix: str = DEFAULT_KEY_PREFIX,
 ) -> str:
     payload = {
+        "categoryId": category_id,
+        "datasetName": dataset_name,
         "startTime": Util.normalize_timestamp(start_time),
         "endTime": Util.normalize_timestamp(end_time),
         "fields": sorted(fields) if fields else None,
         "filters": filters or {},
     }
     digest = _stable_hash(payload)
-    return f"{prefix}:attr:{category_id}:{dataset_name}:{digest}"
+    return f"{prefix}:attr:{digest}"
 
 
 def metadata_key(entity_id: str, *, prefix: str = DEFAULT_KEY_PREFIX) -> str:

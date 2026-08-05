@@ -39,6 +39,15 @@ def test_attributes_key_normalizes_dates_and_sorts_fields():
         filters={"x": 1},
     )
     assert k1 == k2
+    assert k1.startswith("gi:v1:attr:")
+    assert "cat" not in k1 and "budget" not in k1
+
+
+def test_attributes_key_disambiguates_colon_in_ids():
+    """category/dataset with colons must not collide when joined as path segments."""
+    k1 = attributes_key("a:b", "c", start_time="2022-01-01")
+    k2 = attributes_key("a", "b:c", start_time="2022-01-01")
+    assert k1 != k2
 
 
 def test_cache_ttl_default_is_seven_days():

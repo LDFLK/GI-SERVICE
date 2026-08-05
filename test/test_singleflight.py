@@ -136,3 +136,73 @@ async def test_release_lock_uses_owner_token():
     assert eval_args[1] == 1  # numkeys
     assert eval_args[2] == lock_key
     assert eval_args[3] == stored_token
+
+
+@pytest.mark.asyncio
+async def test_canceled_follower_does_not_cancel_shared_future():
+    """Cancelling a waiter must not cancel the shared Future or the leader."""
+    cache = InMemoryCache()
+    sf = SingleFlight()
+
+    started = asyncio.Event()
+    release_fetch = asyncio.Event()
+
+    async def slow_fetch():
+        started.set()
+        await release_fetch.wait()
+        return {"ok": True}
+
+    async def call():
+        return await sf.get_or_fetch(
+            "k", cache=cache, fetch=slow_fetch, ttl_seconds=60
+        )
+
+    leader_task = asyncio.create_task(call())
+    await started.wait()
+
+    follower_task = asyncio.create_task(call())
+    # Let follower attach to the shared in-flight Future
+    await asyncio.sleep(0)
+    follower_task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await follower_task
+
+    release_fetch.set()
+    assert await leader_task == {"ok": True}
+    assert await cache.get("k") == {"ok": True}
+
+
+@pytest.mark.asyncio
+async def test_canceled_leader_cancels_waiters():
+    """Leader cancellation completes the shared Future so waiters do not hang."""
+    cache = InMemoryCache()
+    sf = SingleFlight()
+
+    started = asyncio.Event()
+    release_fetch = asyncio.Event()
+
+    async def slow_fetch():
+        started.set()
+        await release_fetch.wait()
+        return {"ok": True}
+
+    async def call():
+        return await sf.get_or_fetch(
+            "k", cache=cache, fetch=slow_fetch, ttl_seconds=60
+        )
+
+    leader_task = asyncio.create_task(call())
+    await started.wait()
+
+    follower_task = asyncio.create_task(call())
+    await asyncio.sleep(0)
+
+    leader_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await leader_task
+
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(follower_task, timeout=1.0)
+
+    assert await cache.get("k") is None

@@ -125,7 +125,8 @@ class SingleFlight:
 
         existing = self._inflight.get(key)
         if existing is not None:
-            return await existing
+            # Shield so cancelling this caller does not cancel the shared Future
+            return await asyncio.shield(existing)
 
         loop = asyncio.get_running_loop()
         fut: asyncio.Future[Any] = loop.create_future()
@@ -138,6 +139,10 @@ class SingleFlight:
             if not fut.done():
                 fut.set_result(result)
             return result
+        except asyncio.CancelledError:
+            if not fut.done():
+                fut.cancel()
+            raise
         except Exception as exc:
             if not fut.done():
                 fut.set_exception(exc)
