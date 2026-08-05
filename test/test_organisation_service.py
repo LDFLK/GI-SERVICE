@@ -1259,7 +1259,7 @@ async def test_enrich_body_item_is_new_true(organisation_service, mock_opengin_s
         "id": "body_123",
         "name": "National Police Academy",
         "isNew": True,
-        "minorKind": "Council",
+        "type": "Council",
     }
 
     mock_opengin_service.get_entities.assert_called_once_with(
@@ -1298,7 +1298,7 @@ async def test_enrich_body_item_is_new_false(
         "id": "body_123",
         "name": "National Police Academy",
         "isNew": False,
-        "minorKind": "Council",
+        "type": "Council",
     }
 
 
@@ -1325,7 +1325,7 @@ async def test_enrich_body_item_empty_minor_kind(
             body_relation=body_relation, selected_date=selected_date
         )
 
-    assert result["minorKind"] == ""
+    assert result["type"] == ""
 
 
 @pytest.mark.asyncio
@@ -1541,13 +1541,13 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
                 "id": "body_1",
                 "name": "National Police Academy",
                 "isNew": True,
-                "minorKind": "Council",
+                "type": "Council",
             },
             {
                 "id": "body_2",
                 "name": "Assets vested to the Treasury",
                 "isNew": False,
-                "minorKind": "",
+                "type": "",
             },
         ]
 
@@ -1563,13 +1563,13 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
                 "id": "body_1",
                 "name": "National Police Academy",
                 "isNew": True,
-                "minorKind": "Council",
+                "type": "Council",
             },
             {
                 "id": "body_2",
                 "name": "Assets vested to the Treasury",
                 "isNew": False,
-                "minorKind": "",
+                "type": "",
             },
         ],
     }
@@ -1620,7 +1620,7 @@ async def test_bodies_by_department_partial_enrichment_failure(
                 "id": "body_1",
                 "name": "National Police Academy",
                 "isNew": True,
-                "minorKind": "Council",
+                "type": "Council",
             },
             InternalServerError("enrichment failed for body_2"),
         ]
@@ -1637,7 +1637,7 @@ async def test_bodies_by_department_partial_enrichment_failure(
                 "id": "body_1",
                 "name": "National Police Academy",
                 "isNew": True,
-                "minorKind": "Council",
+                "type": "Council",
             }
         ],
     }
@@ -1727,7 +1727,7 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
             "id": "body_1",
             "name": "National Police Academy",
             "isNew": True,
-            "minorKind": "Council",
+            "type": "Council",
         }
 
         await organisation_service.bodies_by_department(
