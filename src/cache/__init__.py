@@ -2,7 +2,13 @@ from src.cache.protocol import CacheBackend
 from src.cache.null_cache import NullCache
 from src.cache.memory_cache import InMemoryCache
 from src.cache.redis_cache import RedisCache
-from src.cache.app_cache import build_cache, cache, close_cache, connect_cache, singleflight
+from src.cache.app_cache import (
+    build_cache,
+    cache,
+    close_cache,
+    connect_cache,
+    singleflight,
+)
 from src.cache.keys import (
     DEFAULT_KEY_PREFIX,
     attributes_key,

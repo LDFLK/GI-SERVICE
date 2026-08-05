@@ -45,6 +45,7 @@ class OpenGINService:
 
     get_entities / fetch_relation are read-through cached (NullCache when disabled).
     """
+
     def __init__(
         self,
         cache: CacheBackend | None = None,
@@ -126,7 +127,6 @@ class OpenGINService:
         if not entityId or not relation:
             raise BadRequestError("Entity ID is required")
 
-
         stripped_entity_id = str(entityId).strip()
         if not stripped_entity_id:
             raise BadRequestError("Entity ID can not be empty")
@@ -151,7 +151,7 @@ class OpenGINService:
     async def _fetch_relation_uncached(self, entityId: str, relation: Relation):
         """HTTP-only path; retries apply here, not on cache hits."""
         url = f"{settings.BASE_URL_QUERY}/v1/entities/{entityId}/relations"
-        headers = {"Content-Type": "application/json"}  
+        headers = {"Content-Type": "application/json"}
         payload = relation.model_dump(mode="json")
 
         try:

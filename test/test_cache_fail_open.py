@@ -72,9 +72,7 @@ async def test_get_or_fetch_with_soft_redis_still_returns_value():
     sf = SingleFlight()
     fetch = AsyncMock(return_value={"id": "1"})
 
-    result = await sf.get_or_fetch(
-        "k", cache=redis_cache, fetch=fetch, ttl_seconds=60
-    )
+    result = await sf.get_or_fetch("k", cache=redis_cache, fetch=fetch, ttl_seconds=60)
 
     assert result == {"id": "1"}
     assert fetch.await_count == 1

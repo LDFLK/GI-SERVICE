@@ -30,7 +30,9 @@ class RedisCache:
     def client(self) -> Redis:
         """Expose the async client for SingleFlight Redis locks."""
         if self._client is None:
-            raise RuntimeError("Redis cache not initialized; call connect() in lifespan")
+            raise RuntimeError(
+                "Redis cache not initialized; call connect() in lifespan"
+            )
         return self._client
 
     async def connect(self) -> None:

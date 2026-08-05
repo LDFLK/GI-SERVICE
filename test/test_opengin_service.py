@@ -455,6 +455,7 @@ async def test_get_attributes_bad_request(mock_service, mock_session):
 
 # --- Read-through cache (InMemoryCache; no Redis required) ---
 
+
 @pytest.mark.asyncio
 async def test_get_entities_second_call_is_cache_hit(mock_session):
     """Miss then hit: upstream POST only once."""
