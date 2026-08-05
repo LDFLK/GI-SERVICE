@@ -91,3 +91,13 @@ async def department_history_timeline(
         department_id=department_id
     )
     return service_response
+
+
+@router.get(
+    "/presidents",
+    summary="Get all presidents with their term dates and gazettes sorted by date.",
+    description="Returns a sorted list of presidents with their term dates and corresponding gazette ids and dates.",
+)
+async def presidents(service: OrganisationService = Depends(get_organisation_service)):
+    service_response = await service.fetch_presidents()
+    return service_response
