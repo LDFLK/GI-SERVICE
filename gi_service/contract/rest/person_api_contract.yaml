@@ -210,14 +210,14 @@ paths:
       description: Returns the enriched list of persons appointed to a given ministry as of a specific date, along with precomputed summary counts and president/new-appointment flags.
       operationId: getPortfolioPerson
 
-      -parameters:
-        name: ministry_id
-        in: path
-        required: true
-        schema:
-          type: string
-        description: ID of the ministry
-        example: "min-12"
+      parameters:
+        - name: ministry_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the ministry
+          example: "min-12"
        
       requestBody:
         required: true
