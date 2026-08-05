@@ -883,6 +883,7 @@ paths:
                              - name
                              - id
                              - isNew
+                             - minorKind
                             properties:
                               name:
                                 type: string
@@ -890,18 +891,22 @@ paths:
                                 type: string
                               isNew:
                                 type: boolean
+                              minorKind:
+                                type: string
 
               example:
                 body:
                   totalBodies: 2
                   newBodies: 2
                   bodiesList:
-                    - name: National Police Academy
-                      id: 2187-27_bod_4
+                    - name: CBSL Governing Board
+                      id: cbsl_governing_board
                       isNew: false
-                    - name: Assets vested to the Secretary to the Treasury, under the Act, No. 43 of 2011
-                      id: 2153-12_bod_437
+                      minorKind: board
+                    - name: CBSL Monetary Policy Council
+                      id: cbsl_monetary_policy_council
                       isNew: false
+                      minorKind: council
         "400":
           description: Bad request
         "404":
