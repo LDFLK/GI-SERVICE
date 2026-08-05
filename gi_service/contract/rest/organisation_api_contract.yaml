@@ -912,21 +912,21 @@ paths:
         "500":
           description: Server Error
 
-  /v1/ministry/{ministry_id}/persons:
+  /v1/portfolio/{portfolio_id}/persons:
     post:
       tags:
         - Organization
-      summary: Get persons assigned to a ministry on a given date.
-      description: Returns the enriched list of persons appointed to a given ministry as of a specific date, along with precomputed summary counts and president/new-appointment flags.
+      summary: Get persons assigned to a portfolio on a given date.
+      description: Returns the enriched list of persons appointed to a given portfolio as of a specific date, along with precomputed summary counts and president/new-appointment flags.
       operationId: getPortfolioPerson
 
       parameters:
-        - name: ministry_id
+        - name: portfolio_id
           in: path
           required: true
           schema:
             type: string
-          description: ID of the ministry
+          description: ID of the portfolio
           example: "min-12"
        
       requestBody:
@@ -937,27 +937,20 @@ paths:
               type: object
               required:
                 - date
-                - relation_name
               properties:
                 date:
                   type: string
                   format: date-time
                   description: Date to query persons as-of
-                  example: "2026-04-21T00:00:00Z"
-                relation_name:
-                  type: string
-                  enum:
-                    - AS_APPOINTED
-                  default: AS_APPOINTED
-                  description: Relation type filter
+                  example: "2026-04-21"
 
       responses:
         "200":
-          description: Successfully returned people for a specific ministry
+          description: Successfully returned people for a specific portfolio
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MinistryPersonsResponse"
+                $ref: "#/components/schemas/PortfolioPersonsResponse"
               example:
                 ministry_name: "Minister of Women and Child Affairs"
                 total_count: 1
@@ -1139,18 +1132,13 @@ components:
         id:
           type: string    
      
-    MinistryPersonsResponse:
+    PortfolioPersonsResponse:
       type: object
       required:
-        - ministry_name
         - total_count
         - new_count
         - persons
       properties:
-        ministry_name:
-          type: string
-          description: "Human-readable name of the queried ministry"
-          example: "Minister of Women and Child Affairs"
         total_count:
           type: integer
           minimum: 0
@@ -1164,15 +1152,13 @@ components:
         persons:
           type: array
           items:
-            $ref: "#/components/schemas/MinistryPersonSummary"
+            $ref: "#/components/schemas/PortfolioPersonSummary"
 
-    MinistryPersonSummary:
+    PortfolioPersonSummary:
       type: object
       required:
         - id
         - name
-        - start_time
-        - end_time
         - is_new
         - is_president
         - profile_url
@@ -1185,16 +1171,6 @@ components:
           type: string
           description: "Fully resolved, human-readable name (decoded server-side)"
           example: "Saroja Savithri Paulraj"
-        start_time:
-          type: string
-          format: date-time
-          description: "When this person's appointment relation started"
-          example: "2024-11-18T00:00:00Z"
-        end_time:
-          type: [string, "null"]
-          format: date-time
-          description: "When the relation ended; null if still active"
-          example: null
         is_new:
           type: boolean
           description: "True if start_time falls on the queried date"
