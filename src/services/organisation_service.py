@@ -1068,7 +1068,7 @@ class OrganisationService:
             "id": body_id,
             "name": name,
             "isNew": is_new,
-            "minorKind": minor_kind,
+            "type": minor_kind,
         }
 
     # API: Bodies by departments
