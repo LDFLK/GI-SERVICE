@@ -18,10 +18,13 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     # Same lifecycle as HTTP: open shared resources once per worker, close on shutdown
     await http_client.start()
-    await connect_cache()  # Redis connect + wire SingleFlight locks when enabled
-    yield
-    await close_cache()
-    await http_client.close()
+    try:
+        await connect_cache()  # Redis connect + wire SingleFlight locks when enabled
+        yield
+    finally:
+        # Always close even if connect_cache() raises (client may exist before PING)
+        await close_cache()
+        await http_client.close()
 
 
 app = FastAPI(
