@@ -125,7 +125,7 @@ class OpenGINService:
     async def fetch_relation(self, entityId: str, relation: Relation):
         """Read-through cache around OpenGIN relation fetch."""
         if not entityId or not relation:
-            raise BadRequestError("Entity ID is required")
+            raise BadRequestError("Entity ID and relation is required")
 
         stripped_entity_id = str(entityId).strip()
         if not stripped_entity_id:

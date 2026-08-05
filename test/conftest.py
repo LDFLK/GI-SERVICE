@@ -1,8 +1,9 @@
 import os
 
 # Force cache off before Settings/singletons matter for any leftover imports.
+# Unconditional so ambient CACHE_ENABLED=true cannot create a RedisCache singleton.
 # mock_service still injects NullCache explicitly so tests never depend on Redis.
-os.environ.setdefault("CACHE_ENABLED", "false")
+os.environ["CACHE_ENABLED"] = "false"
 
 import pytest
 from aiohttp import ClientError

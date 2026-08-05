@@ -1,6 +1,6 @@
-import random
-
 """TTL jitter so hot keys do not all expire at once."""
+
+import random
 
 
 def apply_jitter(ttl_seconds: int, *, fraction: float = 0.10) -> int:

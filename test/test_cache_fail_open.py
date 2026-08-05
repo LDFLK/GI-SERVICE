@@ -83,9 +83,12 @@ async def test_get_or_fetch_with_soft_redis_still_returns_value():
 @pytest.mark.asyncio
 async def test_connect_cache_fails_startup_when_redis_unreachable():
     redis = RedisCache("redis://localhost:9")  # nothing listening
-    with patch.object(app_cache_mod, "cache", redis):
-        with patch.object(app_cache_mod.singleflight, "_redis", None):
-            with pytest.raises(Exception):
-                await app_cache_mod.connect_cache()
-
-    assert app_cache_mod.singleflight._redis is None
+    with patch.object(
+        redis, "connect", AsyncMock(side_effect=RedisConnectionError("unreachable"))
+    ):
+        with patch.object(app_cache_mod, "cache", redis):
+            with patch.object(app_cache_mod.singleflight, "_redis", None):
+                with pytest.raises(RedisConnectionError):
+                    await app_cache_mod.connect_cache()
+                # Assert inside the patch context, before the value is restored.
+                assert app_cache_mod.singleflight._redis is None
