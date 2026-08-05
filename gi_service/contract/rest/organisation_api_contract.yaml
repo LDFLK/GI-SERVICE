@@ -962,7 +962,6 @@ paths:
                     end_time: null
                     is_new: false
                     is_president: false
-                    profile_url: "/person-profile/cit-16"
 
         "400":
           description: Bad request - Invalid parameters
