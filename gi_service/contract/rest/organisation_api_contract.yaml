@@ -1161,7 +1161,6 @@ components:
         - name
         - is_new
         - is_president
-        - profile_url
       properties:
         id:
           type: string
@@ -1179,7 +1178,3 @@ components:
           type: boolean
           description: "True if this person is the currently selected president"
           example: false
-        profile_url:
-          type: string
-          description: "Relative path to this person's profile page"
-          example: "/person-profile/cit-16"
