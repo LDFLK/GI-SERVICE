@@ -227,6 +227,7 @@ paths:
               type: object
               required:
                 date
+                relation_name
               properties:
                 date:
                   type: string
@@ -236,13 +237,13 @@ paths:
                 relation_name:
                   type: string
                   enum:
-                    - AS_APPOINTED
+                    AS_APPOINTED
                   default: AS_APPOINTED
                   description: Relation type filter
 
       responses:
         "200":
-          description: Successfully returned ministry persons
+          description: Successfully returned people for a specific ministry
           content:
             application/json:
               schema:
@@ -251,15 +252,14 @@ paths:
                 ministry_name: "Minister of Women and Child Affairs"
                 total_count: 1
                 new_count: 0
-                theme_color_light: "#4A90E2"
-                persons:
-                  - id: "cit-16"
-                    name: "Saroja Savithri Paulraj"
-                    start_time: "2024-11-18T00:00:00Z"
-                    end_time: null
-                    is_new: false
-                    is_president: false
-                    profile_url: "/person-profile/cit-16"
+                -persons:
+                  id: "cit-16"
+                  name: "Saroja Savithri Paulraj"
+                  start_time: "2024-11-18T00:00:00Z"
+                  end_time: null
+                  is_new: false
+                  is_president: false
+                  profile_url: "/person-profile/cit-16"
 
         "400":
           description: Bad request - Invalid parameters
@@ -488,7 +488,6 @@ components:
         ministry_name
         total_count
         new_count
-        theme_color_light
         - persons
       properties:
         ministry_name:
@@ -505,10 +504,6 @@ components:
           minimum: 0
           description: "Count of persons where is_new is true — powers 'New People' in Key Highlights"
           example: 0
-        theme_color_light:
-          type: string
-          description: "Hex color for the currently selected president, used for badges/icons/links"
-          example: "#4A90E2"
         persons:
           type: array
           items:
@@ -517,13 +512,13 @@ components:
     MinistryPersonSummary:
       type: object
       required:
-        - id
-        - name
-        - start_time
-        - end_time
-        - is_new
-        - is_president
-        - profile_url
+        id
+        name
+        start_time
+        end_time
+        is_new
+        is_president
+        profile_url
       properties:
         id:
           type: string
