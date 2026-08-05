@@ -154,9 +154,7 @@ async def test_canceled_follower_does_not_cancel_shared_future():
         return {"ok": True}
 
     async def call():
-        return await sf.get_or_fetch(
-            "k", cache=cache, fetch=slow_fetch, ttl_seconds=60
-        )
+        return await sf.get_or_fetch("k", cache=cache, fetch=slow_fetch, ttl_seconds=60)
 
     leader_task = asyncio.create_task(call())
     await started.wait()
@@ -189,9 +187,7 @@ async def test_canceled_leader_cancels_waiters():
         return {"ok": True}
 
     async def call():
-        return await sf.get_or_fetch(
-            "k", cache=cache, fetch=slow_fetch, ttl_seconds=60
-        )
+        return await sf.get_or_fetch("k", cache=cache, fetch=slow_fetch, ttl_seconds=60)
 
     leader_task = asyncio.create_task(call())
     await started.wait()
