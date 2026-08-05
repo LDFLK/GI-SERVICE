@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
@@ -14,6 +15,18 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 FetchFn = Callable[[], Awaitable[T]]
 
+# Empty token: we proceeded without a Redis-owned lock (no redis / fail-open).
+_NO_REDIS_LOCK = ""
+
+# Delete lock only if the value still matches our token (atomic compare-and-del).
+_RELEASE_LOCK_LUA = """
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("del", KEYS[1])
+else
+  return 0
+end
+"""
+
 
 class SingleFlight:
     """
@@ -21,6 +34,8 @@ class SingleFlight:
 
     If a redis.asyncio-compatible client is provided, also uses SET NX EX
     so only one worker across the fleet fetches; other workers poll the cache.
+    Each acquisition stores a unique token; release deletes only when that
+    token still owns the lock (Lua compare-and-del).
     """
 
     def __init__(
@@ -30,7 +45,8 @@ class SingleFlight:
         lock_prefix: str = "gi:lock:",
         lock_ttl_seconds: int = 30,
         poll_interval_seconds: float = 0.05,
-        poll_timeout_seconds: float = 30.0,
+        # Shorter than lock TTL so losers fail over before the lock expires
+        poll_timeout_seconds: float = 10.0,
     ) -> None:
         self._inflight: dict[str, asyncio.Future[Any]] = {}
         self._redis = redis_client
@@ -42,29 +58,38 @@ class SingleFlight:
     def _lock_key(self, key: str) -> str:
         return f"{self._lock_prefix}{key}"
 
-    async def _try_acquire_lock(self, key: str) -> bool:
+    async def _try_acquire_lock(self, key: str) -> str | None:
+        """Return owner token if acquired, None if another holder has the lock.
+
+        ``_NO_REDIS_LOCK`` (empty str) means proceed without a Redis lock to release.
+        """
         if self._redis is None:
-            return True
+            return _NO_REDIS_LOCK
+        token = uuid.uuid4().hex
         try:
-            # SET lock NX EX — only the first caller wins
-            return bool(
-                await self._redis.set(
-                    self._lock_key(key),
-                    "1",
-                    nx=True,
-                    ex=self._lock_ttl,
-                )
+            # SET lock NX EX — only the first caller wins; value is our owner token
+            acquired = await self._redis.set(
+                self._lock_key(key),
+                token,
+                nx=True,
+                ex=self._lock_ttl,
             )
+            return token if acquired else None
         except Exception as exc:
             # Fail-open: skip distributed lock; local single-flight still applies
             logger.warning("Redis lock acquire failed key=%s: %s", key, exc)
-            return True
+            return _NO_REDIS_LOCK
 
-    async def _release_lock(self, key: str) -> None:
-        if self._redis is None:
+    async def _release_lock(self, key: str, token: str) -> None:
+        if self._redis is None or not token:
             return
         try:
-            await self._redis.delete(self._lock_key(key))
+            await self._redis.eval(
+                _RELEASE_LOCK_LUA,
+                1,
+                self._lock_key(key),
+                token,
+            )
         except Exception as exc:
             logger.warning("Redis lock release failed key=%s: %s", key, exc)
 
@@ -133,15 +158,15 @@ class SingleFlight:
         fetch: FetchFn[T],
         ttl_seconds: int,
     ) -> T:
-        acquired = await self._try_acquire_lock(key)
+        token = await self._try_acquire_lock(key)
 
         # If we didn't get the lock, wait for someone else to fill the cache.
-        if not acquired:
+        if token is None:
             waited = await self._wait_for_cache(cache, key)
             if waited is not None:
                 return waited
             # Timed out waiting for the other worker — try to take over
-            acquired = await self._try_acquire_lock(key)
+            token = await self._try_acquire_lock(key)
 
         try:
             # Double-check: another waiter may have filled the cache
@@ -155,5 +180,5 @@ class SingleFlight:
                 await cache.set(key, value, ttl_seconds)
             return value
         finally:
-            if acquired:
-                await self._release_lock(key)
+            if token is not None:
+                await self._release_lock(key, token)

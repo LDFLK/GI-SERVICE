@@ -63,7 +63,7 @@ async def test_redis_lock_loser_waits_for_cache():
     redis = AsyncMock()
     # First caller (leader) gets the lock; loser does not
     redis.set = AsyncMock(side_effect=[True, False])
-    redis.delete = AsyncMock()
+    redis.eval = AsyncMock(return_value=1)
 
     sf_leader = SingleFlight(redis_client=redis, poll_interval_seconds=0.01)
     sf_loser = SingleFlight(redis_client=redis, poll_interval_seconds=0.01)
@@ -107,3 +107,32 @@ async def test_redis_lock_loser_waits_for_cache():
     assert loser_result == {"from": "leader"}
     # Loser's fetch must not have won
     assert await cache.get("shared") == {"from": "leader"}
+    # Leader released via compare-and-del Lua, not unconditional DELETE
+    redis.eval.assert_awaited()
+    redis.delete.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_release_lock_uses_owner_token():
+    """Release passes the acquisition token into the Lua script."""
+    cache = InMemoryCache()
+    redis = AsyncMock()
+    redis.set = AsyncMock(return_value=True)
+    redis.eval = AsyncMock(return_value=1)
+
+    sf = SingleFlight(redis_client=redis)
+    fetch = AsyncMock(return_value={"ok": True})
+
+    await sf.get_or_fetch("k", cache=cache, fetch=fetch, ttl_seconds=60)
+
+    assert redis.set.await_count == 1
+    # redis.set(lock_key, token, nx=True, ex=...)
+    lock_key, stored_token = redis.set.await_args.args[0], redis.set.await_args.args[1]
+    assert stored_token != "1"
+    assert len(stored_token) == 32  # uuid4.hex
+
+    redis.eval.assert_awaited_once()
+    eval_args = redis.eval.await_args.args
+    assert eval_args[1] == 1  # numkeys
+    assert eval_args[2] == lock_key
+    assert eval_args[3] == stored_token

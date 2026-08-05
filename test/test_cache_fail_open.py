@@ -49,7 +49,7 @@ async def test_lock_acquire_fail_open_still_fetches():
     cache = InMemoryCache()
     redis = AsyncMock()
     redis.set = AsyncMock(side_effect=RedisConnectionError("lock down"))
-    redis.delete = AsyncMock(side_effect=RedisConnectionError("lock down"))
+    redis.eval = AsyncMock(side_effect=RedisConnectionError("lock down"))
 
     sf = SingleFlight(redis_client=redis)
     fetch = AsyncMock(return_value={"ok": True})
@@ -59,6 +59,8 @@ async def test_lock_acquire_fail_open_still_fetches():
     assert result == {"ok": True}
     assert fetch.await_count == 1
     assert await cache.get("k") == {"ok": True}
+    # Fail-open acquire never set a Redis lock, so release must not eval/delete
+    redis.eval.assert_not_called()
 
 
 @pytest.mark.asyncio
