@@ -39,13 +39,13 @@ paths:
                   - name: Anura Kumara Dissanayake
                     id: 2403-03-01_cit_1
                     tenureList:
-                      - startDate: 2024-09-23T00:00:00Z
+                      - startDate: 2024-09-23
                         endDate: ""
                         gazetteList:
-                          - date: 2024-11-18T00:00:00Z
+                          - date: 2024-11-18
                             idList:
                               - 2411-09
-                          - date: 2024-12-13T00:00:00Z
+                          - date: 2024-12-13
                             idList:
                               - 2412-03
                               - 2412-04
