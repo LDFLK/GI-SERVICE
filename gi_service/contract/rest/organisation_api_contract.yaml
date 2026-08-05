@@ -940,7 +940,7 @@ paths:
               properties:
                 date:
                   type: string
-                  format: date-time
+                  format: date
                   description: Date to query persons as-of
                   example: "2026-04-21"
 
@@ -952,7 +952,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/PortfolioPersonsResponse"
               example:
-                ministry_name: "Minister of Women and Child Affairs"
                 total_count: 1
                 new_count: 0
                 persons:
@@ -971,10 +970,10 @@ paths:
                   detail:
                     type: string
               example:
-                detail: "ministry_id and date are required"
+                detail: "portfolio_id and date are required"
 
         "404":
-          description: Ministry not found
+          description: Portfolio not found
           content:
             application/json:
               schema:
@@ -983,7 +982,7 @@ paths:
                   detail:
                     type: string
               example:
-                detail: "Ministry not found"
+                detail: "Portfolio not found"
 
         "500":
           description: Server Error
