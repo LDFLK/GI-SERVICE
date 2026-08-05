@@ -1067,14 +1067,15 @@ class OrganisationService:
                 f"enrich_body_item: failed to decode name for body_id={body_id}, raw name={first_body.name!r}: {e}"
             ) from e
 
+        minor_kind = first_body.kind.minor          
         body_start_date = body_relation.startTime
-        normalized_selected_date = Util.normalize_timestamp(selected_date)
-        is_new = body_start_date == normalized_selected_date
+        is_new = body_start_date == selected_date
 
         return {
             "id": body_id,
             "name": name,
             "isNew": is_new,
+            "minorKind": minor_kind, 
         }
 
     # API: Bodies by departments
@@ -1094,6 +1095,7 @@ class OrganisationService:
                 "name": "",
                 "id": "",
                 "isNew": false,
+                "minorKind": "",
                 },
             ]
         }
@@ -1152,7 +1154,7 @@ class OrganisationService:
 
         enrich_body_tasks = [
             self.enrich_body_item(
-                body_relation=body_relation, selected_date=selected_date
+                body_relation=body_relation, selected_date= normalized_date
             )
             for body_relation in body_relation_list
         ]
