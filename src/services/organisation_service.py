@@ -1095,7 +1095,7 @@ class OrganisationService:
                 "name": "",
                 "id": "",
                 "isNew": false,
-                "minorKind": "",
+                "type": "",
                 },
             ]
         }

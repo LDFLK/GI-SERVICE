@@ -883,7 +883,7 @@ paths:
                              - name
                              - id
                              - isNew
-                             - bodyType
+                             - type
                             properties:
                               name:
                                 type: string
@@ -891,7 +891,7 @@ paths:
                                 type: string
                               isNew:
                                 type: boolean
-                              bodyType:
+                              type:
                                 type: string
 
               example:
@@ -902,11 +902,11 @@ paths:
                     - name: CBSL Governing Board
                       id: cbsl_governing_board
                       isNew: false
-                      bodyType: board
+                      type: board
                     - name: CBSL Monetary Policy Council
                       id: cbsl_monetary_policy_council
                       isNew: false
-                      bodyType: council
+                      type: council
         "400":
           description: Bad request
         "404":
