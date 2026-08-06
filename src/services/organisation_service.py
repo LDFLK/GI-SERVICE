@@ -1118,7 +1118,9 @@ class OrganisationService:
                 entity=Entity(id=department_id)
             )
         except NotFoundError as e:
-            logger.warning(f"bodies_by_department: department not found — department_id={department_id!r}")
+            logger.warning(
+                f"bodies_by_department: department not found — department_id={department_id!r}"
+            )
             raise NotFoundError("Department not found") from e
         except Exception as e:
             logger.error(

@@ -1419,6 +1419,7 @@ async def test_enrich_body_item_name_decode_failure(
                 body_relation=body_relation, selected_date="2023-10-27T00:00:00Z"
             )
 
+
 @pytest.mark.asyncio
 async def test_bodies_by_department_empty_department_id(organisation_service):
     with pytest.raises(BadRequestError):
