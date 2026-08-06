@@ -1228,8 +1228,6 @@ async def test_multiple_departments_aggregation(organisation_service):
 
     # Dependency should be called once per date
     assert organisation_service.get_ministers_and_departments.call_count == 2
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "start_time, selected_date, expected_is_new",
@@ -1458,13 +1456,53 @@ async def test_bodies_by_department_empty_selected_date(organisation_service):
             department_id="department_123", selected_date=""
         )
 
-
 @pytest.mark.asyncio
 async def test_bodies_by_department_none_selected_date(organisation_service):
     with pytest.raises(BadRequestError):
         await organisation_service.bodies_by_department(
             department_id="department_123", selected_date=None
         )
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_department_not_found(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.fetch_entity.side_effect = NotFoundError("not found")
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="2023-10-27"
+        )
+
+    mock_opengin_service.fetch_relation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_fetch_entity_generic_error(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.fetch_entity.side_effect = Exception("connection reset")
+
+    with pytest.raises(InternalServerError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="2023-10-27"
+        )
+
+    mock_opengin_service.fetch_relation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_department_entity_none(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.fetch_entity.return_value = None
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="2023-10-27"
+        )
+
+    mock_opengin_service.fetch_relation.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1513,7 +1551,11 @@ async def test_bodies_by_department_department_entity_empty_list(
 async def test_bodies_by_department_fetch_relation_bad_request(
     organisation_service, mock_opengin_service
 ):
+<<<<<<< HEAD
     mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
+=======
+    mock_opengin_service.fetch_entity.return_value = Entity(id="department_123")
+>>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
     mock_opengin_service.fetch_relation.side_effect = BadRequestError("bad request")
 
     with pytest.raises(BadRequestError):
@@ -1526,7 +1568,11 @@ async def test_bodies_by_department_fetch_relation_bad_request(
 async def test_bodies_by_department_fetch_relation_not_found(
     organisation_service, mock_opengin_service
 ):
+<<<<<<< HEAD
     mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
+=======
+    mock_opengin_service.fetch_entity.return_value = Entity(id="department_123")
+>>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
     mock_opengin_service.fetch_relation.side_effect = NotFoundError("not found")
 
     with pytest.raises(NotFoundError):
@@ -1539,7 +1585,11 @@ async def test_bodies_by_department_fetch_relation_not_found(
 async def test_bodies_by_department_fetch_relation_generic_error(
     organisation_service, mock_opengin_service
 ):
+<<<<<<< HEAD
     mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
+=======
+    mock_opengin_service.fetch_entity.return_value = Entity(id="department_123")
+>>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
     # simulates the Neo4j DateTime parse error class of failure
     mock_opengin_service.fetch_relation.side_effect = Exception(
         "Neo4jError: Neo.ClientError.Statement.SyntaxError"
@@ -1555,7 +1605,11 @@ async def test_bodies_by_department_fetch_relation_generic_error(
 async def test_bodies_by_department_no_relations_found(
     organisation_service, mock_opengin_service
 ):
+<<<<<<< HEAD
     mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
+=======
+    mock_opengin_service.fetch_entity.return_value = Entity(id="department_123")
+>>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
     mock_opengin_service.fetch_relation.return_value = []
 
     result = await organisation_service.bodies_by_department(
@@ -1574,7 +1628,11 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
     department_id = "department_123"
     selected_date = "2023-10-27"
 
+<<<<<<< HEAD
     mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
+=======
+    mock_opengin_service.fetch_entity.return_value = Entity(id=department_id)
+>>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
     mock_opengin_service.fetch_relation.return_value = [
         Relation(
             id="",
@@ -1636,9 +1694,13 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
         ],
     }
 
+<<<<<<< HEAD
     mock_opengin_service.get_entities.assert_called_once_with(
         entity=Entity(id=department_id)
     )
+=======
+    mock_opengin_service.fetch_entity.assert_called_once_with(entityId=department_id)
+>>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
     mock_opengin_service.fetch_relation.assert_called_once_with(
         entityId=department_id,
         relation=Relation(
@@ -1657,7 +1719,11 @@ async def test_bodies_by_department_partial_enrichment_failure(
     department_id = "department_123"
     selected_date = "2023-10-27"
 
+<<<<<<< HEAD
     mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
+=======
+    mock_opengin_service.fetch_entity.return_value = Entity(id=department_id)
+>>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
     mock_opengin_service.fetch_relation.return_value = [
         Relation(
             id="",
@@ -1716,7 +1782,11 @@ async def test_bodies_by_department_all_enrichments_fail(
     department_id = "department_123"
     selected_date = "2023-10-27"
 
+<<<<<<< HEAD
     mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
+=======
+    mock_opengin_service.fetch_entity.return_value = Entity(id=department_id)
+>>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
     mock_opengin_service.fetch_relation.return_value = [
         Relation(
             id="",
@@ -1767,7 +1837,11 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
         endTime="",
         direction=RelationDirectionEnum.OUTGOING.value,
     )
+<<<<<<< HEAD
     mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
+=======
+    mock_opengin_service.fetch_entity.return_value = Entity(id=department_id)
+>>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
     mock_opengin_service.fetch_relation.return_value = [body_relation]
 
     with patch(
