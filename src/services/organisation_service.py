@@ -1114,12 +1114,12 @@ class OrganisationService:
         )
 
         try:
-            department_entity = await self.opengin_service.fetch_entity(entityId=department_id)
-        except NotFoundError:
-            logger.warning(
-                f"department not found — department_id={department_id!r}"
+            department_entity = await self.opengin_service.fetch_entity(
+                entityId=department_id
             )
-            raise NotFoundError(f"Department not found")
+        except NotFoundError:
+            logger.warning(f"department not found — department_id={department_id!r}")
+            raise NotFoundError("Department not found")
         except Exception as e:
             logger.error(
                 f"bodies_by_department: fetch_entity FAILED — department_id={department_id!r}, error={e!r}"
@@ -1133,7 +1133,6 @@ class OrganisationService:
                 f"bodies_by_department: department not found — department_id={department_id!r}"
             )
             raise NotFoundError(f"Department not found: department_id={department_id}")
-
 
         relation = Relation(
             name=RelationNameEnum.AS_BODY.value,

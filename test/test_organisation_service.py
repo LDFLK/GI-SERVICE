@@ -1228,6 +1228,8 @@ async def test_multiple_departments_aggregation(organisation_service):
 
     # Dependency should be called once per date
     assert organisation_service.get_ministers_and_departments.call_count == 2
+
+
 @pytest.mark.asyncio
 async def test_enrich_body_item_is_new_true(organisation_service, mock_opengin_service):
     body_relation = Relation(
@@ -1441,12 +1443,14 @@ async def test_bodies_by_department_empty_selected_date(organisation_service):
             department_id="department_123", selected_date=""
         )
 
+
 @pytest.mark.asyncio
 async def test_bodies_by_department_none_selected_date(organisation_service):
     with pytest.raises(BadRequestError):
         await organisation_service.bodies_by_department(
             department_id="department_123", selected_date=None
         )
+
 
 @pytest.mark.asyncio
 async def test_bodies_by_department_department_not_found(
