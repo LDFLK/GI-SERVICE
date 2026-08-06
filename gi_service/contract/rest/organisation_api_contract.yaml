@@ -840,7 +840,7 @@ paths:
         "500":
           description: Server Error
   
-  /v1/bodies-by-department/{department_id}:
+  /v1/department/{department_id}/bodies:
     post:
       tags:
         - Organization
@@ -875,7 +875,7 @@ paths:
                           type: integer
                         newBodies:
                           type: integer
-                        bodiesList:
+                        bodyList:
                           type: array
                           items:
                             type: object
@@ -898,7 +898,7 @@ paths:
                 body:
                   totalBodies: 2
                   newBodies: 2
-                  bodiesList:
+                  bodyList:
                     - name: CBSL Governing Board
                       id: cbsl_governing_board
                       isNew: false

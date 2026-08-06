@@ -95,7 +95,7 @@ async def department_history_timeline(
 
 
 @router.post(
-    "/bodies-by-department/{department_id}",
+    "/department/{department_id}/bodies",
     summary="Get active bodies for a department.",
     description="Returns a list of bodies under a given department and a given date.",
 )

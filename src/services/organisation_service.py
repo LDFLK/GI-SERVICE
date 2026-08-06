@@ -1083,7 +1083,7 @@ class OrganisationService:
         {
             "totalBodies": 0,
             "newBodies": 0,
-            "bodiesList": [
+            "bodyList": [
                 {
                 "name": "",
                 "id": "",
@@ -1105,6 +1105,28 @@ class OrganisationService:
             f"bodies_by_department: starting — department_id={department_id!r}, "
             f"selected_date={selected_date!r}, normalized_date={normalized_date!r}"
         )
+
+        try:
+            department_entity = await self.opengin_service.fetch_entity(entityId=department_id)
+        except NotFoundError:
+            logger.warning(
+                f"department not found — department_id={department_id!r}"
+            )
+            raise NotFoundError(f"Department not found")
+        except Exception as e:
+            logger.error(
+                f"bodies_by_department: fetch_entity FAILED — department_id={department_id!r}, error={e!r}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: upstream fetch_entity failed for department_id={department_id}: {e}"
+            ) from e
+
+        if department_entity is None:
+            logger.warning(
+                f"bodies_by_department: department not found — department_id={department_id!r}"
+            )
+            raise NotFoundError(f"Department not found: department_id={department_id}")
+
 
         relation = Relation(
             name=RelationNameEnum.AS_BODY.value,
@@ -1142,7 +1164,7 @@ class OrganisationService:
             return {
                 "totalBodies": 0,
                 "newBodies": 0,
-                "bodiesList": [],
+                "bodyList": [],
             }
 
         enrich_body_tasks = [
@@ -1184,7 +1206,7 @@ class OrganisationService:
         finalResult = {
             "totalBodies": len(bodies),
             "newBodies": new_bodies,
-            "bodiesList": bodies,
+            "bodyList": bodies,
         }
 
         logger.info(
