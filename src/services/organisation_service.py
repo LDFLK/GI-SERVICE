@@ -1038,20 +1038,27 @@ class OrganisationService:
             entity = Entity(id=body_id)
             body_data = await self.opengin_service.get_entities(entity=entity)
         except NotFoundError:
-            raise NotFoundError()
-
-        except Exception:
-            raise InternalServerError()
+            raise NotFoundError(
+                f"enrich_body_item: entity not found for id={body_id!r}"
+            )
+        except Exception as e:
+            raise InternalServerError(
+                f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}"
+            )
 
         if not body_data:
-            raise NotFoundError()
+            raise NotFoundError(
+                f"enrich_body_item: no entity data returned for id={body_id!r}"
+            )
 
         first_body = body_data[0]
 
         try:
             name = Util.decode_protobuf_attribute_name(first_body.name)
-        except Exception:
-            raise InternalServerError()
+        except Exception as e:
+            raise InternalServerError(
+                f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
+            )
 
         minor_kind = first_body.kind.minor
         body_start_date = Util.normalize_timestamp(body_relation.startTime)
@@ -1105,9 +1112,15 @@ class OrganisationService:
             )
         except (BadRequestError, NotFoundError):
             raise
+        except Exception as e:
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch department entity id={department_id!r}: {e}"
+            )
 
         if not department_entity:
-            raise NotFoundError()
+            raise NotFoundError(
+                f"bodies_by_department: department not found for id={department_id!r}"
+            )
 
         relation = Relation(
             name=RelationNameEnum.AS_BODY.value,
@@ -1123,8 +1136,10 @@ class OrganisationService:
             raise
         except NotFoundError:
             raise
-        except Exception:
-            raise InternalServerError()
+        except Exception as e:
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}: {e}"
+            )
 
         if not body_relation_list:
             logger.info(
@@ -1159,7 +1174,9 @@ class OrganisationService:
 
         if failures and not bodies:
             # every single enrichment failed — this is a real error, not "zero bodies"
-            raise InternalServerError()
+            raise InternalServerError(
+                f"bodies_by_department: all body enrichments failed for department_id={department_id!r}: {failures}"
+            )
 
         if failures:
             logger.warning(
