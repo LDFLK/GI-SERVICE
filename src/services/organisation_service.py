@@ -1044,16 +1044,16 @@ class OrganisationService:
         try:
             entity = Entity(id=body_id)
             body_data = await self.opengin_service.get_entities(entity=entity)
-        except NotFoundError:
-            raise NotFoundError(
-                f"enrich_body_item: entity not found for id={body_id!r}"
-            )
+        except (NotFoundError, BadRequestError):
+            raise
         except Exception as e:
+            logger.info(f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}")
             raise InternalServerError(
-                f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}"
+                f"enrich_body_item: failed to fetch entity id={body_id!r}"
             )
 
         if not body_data:
+            logger.info(f"enrich_body_item: no entity data returned for id={body_id!r}")
             raise NotFoundError(
                 f"enrich_body_item: no entity data returned for id={body_id!r}"
             )
@@ -1063,8 +1063,11 @@ class OrganisationService:
         try:
             name = Util.decode_protobuf_attribute_name(first_body.name)
         except Exception as e:
-            raise InternalServerError(
+            logger.info(
                 f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"enrich_body_item: failed to decode name for id={body_id!r}"
             )
 
         minor_kind = first_body.kind.minor
@@ -1108,10 +1111,6 @@ class OrganisationService:
             raise BadRequestError("Selected date is required")
 
         normalized_date = Util.normalize_timestamp(selected_date)
-        logger.info(
-            f"bodies_by_department: starting — department_id={department_id!r}, "
-            f"selected_date={selected_date!r}, normalized_date={normalized_date!r}"
-        )
 
         try:
             department_entity = await self.opengin_service.get_entities(
@@ -1120,11 +1119,17 @@ class OrganisationService:
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
-            raise InternalServerError(
+            logger.info(
                 f"bodies_by_department: failed to fetch department entity id={department_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch department entity id={department_id!r}"
             )
 
         if not department_entity:
+            logger.info(
+                f"bodies_by_department: department not found for id={department_id!r}"
+            )
             raise NotFoundError(
                 f"bodies_by_department: department not found for id={department_id!r}"
             )
@@ -1139,18 +1144,19 @@ class OrganisationService:
             body_relation_list = await self.opengin_service.fetch_relation(
                 entityId=department_id, relation=relation
             )
-        except BadRequestError:
-            raise
-        except NotFoundError:
+        except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
-            raise InternalServerError(
+            logger.info(
                 f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}"
             )
 
         if not body_relation_list:
             logger.info(
-                f"bodies_by_department: no relations found for department_id={department_id!r} — returning empty result"
+                f"bodies_by_department: no relations found for department_id={department_id!r}"
             )
             return {
                 "totalBodies": 0,
