@@ -1046,10 +1046,10 @@ class OrganisationService:
             body_data = await self.opengin_service.get_entities(entity=entity)
         except NotFoundError:
             raise NotFoundError()
-        
+
         except Exception:
             raise InternalServerError()
-        
+
         if not body_data:
             raise NotFoundError()
 
@@ -1132,7 +1132,7 @@ class OrganisationService:
             raise
         except Exception:
             raise InternalServerError()
-       
+
         if not body_relation_list:
             logger.info(
                 f"bodies_by_department: no relations found for department_id={department_id!r} — returning empty result"
