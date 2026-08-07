@@ -952,13 +952,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/PortfolioPersonsResponse"
               example:
-                total_count: 1
-                new_count: 0
+                totalCount: 1
+                newCount: 0
                 persons:
-                  - id: "cit-16"
-                    name: "Saroja Savithri Paulraj"
-                    is_new: false
-                    is_president: false
+                  - id: "cit-xx"
+                    name: "Test Person"
+                    isNew: false
+                    isPresident: false
 
         "400":
           description: Bad request - Invalid parameters
@@ -1131,16 +1131,16 @@ components:
     PortfolioPersonsResponse:
       type: object
       required:
-        - total_count
-        - new_count
+        - totalCount
+        - newCount
         - persons
       properties:
-        total_count:
+        totalCount:
           type: integer
           minimum: 0
           description: "Total number of persons — powers 'Total People' in Key Highlights"
           example: 1
-        new_count:
+        newCount:
           type: integer
           minimum: 0
           description: "Count of persons where is_new is true — powers 'New People' in Key Highlights"
@@ -1155,22 +1155,22 @@ components:
       required:
         - id
         - name
-        - is_new
-        - is_president
+        - isNew
+        - isPresident
       properties:
         id:
           type: string
           description: "Person ID"
-          example: "cit-16"
+          example: "cit-xx"
         name:
           type: string
           description: "Fully resolved, human-readable name (decoded server-side)"
-          example: "Saroja Savithri Paulraj"
-        is_new:
+          example: "Test Person"
+        isNew:
           type: boolean
           description: "True if start_time falls on the queried date"
           example: false
-        is_president:
+        isPresident:
           type: boolean
           description: "True if this person is the currently selected president"
           example: false
