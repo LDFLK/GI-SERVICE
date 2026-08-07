@@ -306,7 +306,7 @@ class OrganisationService:
                         ministriesUnderPresident += minister.get("isPresident", False)
 
             # final result to return
-            finalResult = {
+            final_result = {
                 "NoOfCabinetMinistries": len(activePortfolioList) - noOfStateMinistries,
                 "NoOfStateMinistries": noOfStateMinistries,
                 "newMinistries": newMinistries,
@@ -315,7 +315,7 @@ class OrganisationService:
                 "portfolioList": successful_portfolios,
             }
 
-            return finalResult
+            return final_result
 
         except (BadRequestError, NotFoundError):
             raise
@@ -422,13 +422,13 @@ class OrganisationService:
             new_departments = sum(1 for d in departments if d.get("isNew"))
 
             # final departments to return
-            finalResult = {
+            final_result = {
                 "totalDepartments": len(departments),
                 "newDepartments": new_departments,
                 "departmentList": departments,
             }
 
-            return finalResult
+            return final_result
 
         except (BadRequestError, NotFoundError):
             raise
@@ -1204,7 +1204,7 @@ class OrganisationService:
 
         new_bodies = sum(1 for d in bodies if d.get("isNew"))
 
-        finalResult = {
+        final_result = {
             "totalBodies": len(bodies),
             "newBodies": new_bodies,
             "bodyList": bodies,
@@ -1212,7 +1212,7 @@ class OrganisationService:
 
         logger.info(
             f"bodies_by_department: done — department_id={department_id!r}, "
-            f"totalBodies={finalResult['totalBodies']}, newBodies={finalResult['newBodies']}"
+            f"totalBodies={final_result['totalBodies']}, newBodies={final_result['newBodies']}"
         )
 
-        return finalResult
+        return final_result
