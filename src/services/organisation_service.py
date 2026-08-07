@@ -1061,7 +1061,7 @@ class OrganisationService:
             ) from e
 
         minor_kind = first_body.kind.minor
-        body_start_date = body_relation.startTime
+        body_start_date = Util.normalize_timestamp(body_relation.startTime);
         is_new = body_start_date == selected_date
 
         return {
@@ -1094,7 +1094,7 @@ class OrganisationService:
         }
         """
 
-        if department_id is None or department_id == "":
+        if not department_id:
             raise BadRequestError("Department ID is required")
 
         if selected_date is None or selected_date == "":
