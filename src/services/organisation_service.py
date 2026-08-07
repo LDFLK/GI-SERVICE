@@ -1045,27 +1045,20 @@ class OrganisationService:
             entity = Entity(id=body_id)
             body_data = await self.opengin_service.get_entities(entity=entity)
         except NotFoundError:
-            raise NotFoundError(
-                f"enrich_body_item: entity not found for body_id={body_id}"
-            )
-        except Exception as e:
-            raise InternalServerError(
-                "An unexpected error occurred while fetching department"
-            ) from e
-
+            raise NotFoundError()
+        
+        except Exception:
+            raise InternalServerError()
+        
         if not body_data:
-            raise NotFoundError(
-                f"enrich_body_item: get_entities returned empty list for body_id={body_id}"
-            )
+            raise NotFoundError()
 
         first_body = body_data[0]
 
         try:
             name = Util.decode_protobuf_attribute_name(first_body.name)
-        except Exception as e:
-            raise InternalServerError(
-                "An unexpected error occurred while decoding body name"
-            ) from e
+        except Exception:
+            raise InternalServerError()
 
         minor_kind = first_body.kind.minor
         body_start_date = Util.normalize_timestamp(body_relation.startTime)
@@ -1117,21 +1110,11 @@ class OrganisationService:
             department_entity = await self.opengin_service.get_entities(
                 entity=Entity(id=department_id)
             )
-        except NotFoundError as e:
-            logger.warning(
-                f"bodies_by_department: department not found — department_id={department_id!r}"
-            )
-            raise NotFoundError("Department not found") from e
-        except Exception as e:
-            raise InternalServerError(
-                "An unexpected error occurred while fetching entities for department"
-            ) from e
+        except (BadRequestError, NotFoundError):
+            raise
 
         if not department_entity:
-            logger.warning(
-                f"bodies_by_department: department not found — department_id={department_id!r}"
-            )
-            raise NotFoundError(f"Department not found: department_id={department_id}")
+            raise NotFoundError()
 
         relation = Relation(
             name=RelationNameEnum.AS_BODY.value,
@@ -1147,20 +1130,9 @@ class OrganisationService:
             raise
         except NotFoundError:
             raise
-        except Exception as e:
-            # This is the layer that would have caught the Neo4j DateTime parse error.
-            logger.error(
-                f"bodies_by_department: fetch_relation FAILED — department_id={department_id!r}, "
-            )
-            raise InternalServerError(
-                "An unexpected error occurred while fetching entities for department"
-            ) from e
-
-        logger.info(
-            f"bodies_by_department: fetch_relation OK — found {len(body_relation_list)} "
-            f"raw relations for department_id={department_id!r}"
-        )
-
+        except Exception:
+            raise InternalServerError()
+       
         if not body_relation_list:
             logger.info(
                 f"bodies_by_department: no relations found for department_id={department_id!r} — returning empty result"
@@ -1194,10 +1166,7 @@ class OrganisationService:
 
         if failures and not bodies:
             # every single enrichment failed — this is a real error, not "zero bodies"
-            raise InternalServerError(
-                f"bodies_by_department: all {len(failures)} enrichment(s) failed for "
-                f"department_id={department_id}: {failures}"
-            )
+            raise InternalServerError()
 
         if failures:
             logger.warning(
