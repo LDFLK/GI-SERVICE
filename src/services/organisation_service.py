@@ -1043,7 +1043,7 @@ class OrganisationService:
             )
         except Exception as e:
             raise InternalServerError(
-                f"enrich_body_item: get_entities failed for body_id={body_id}: {e}"
+                "An unexpected error occurred while fetching department"
             ) from e
 
         if not body_data:
@@ -1057,11 +1057,11 @@ class OrganisationService:
             name = Util.decode_protobuf_attribute_name(first_body.name)
         except Exception as e:
             raise InternalServerError(
-                f"enrich_body_item: failed to decode name for body_id={body_id}, raw name={first_body.name!r}: {e}"
+                "An unexpected error occurred while decoding body name"
             ) from e
 
         minor_kind = first_body.kind.minor
-        body_start_date = Util.normalize_timestamp(body_relation.startTime);
+        body_start_date = Util.normalize_timestamp(body_relation.startTime)
         is_new = body_start_date == selected_date
 
         return {
@@ -1116,11 +1116,8 @@ class OrganisationService:
             )
             raise NotFoundError("Department not found") from e
         except Exception as e:
-            logger.error(
-                f"bodies_by_department: get_entities FAILED — department_id={department_id!r}, error={e!r}"
-            )
             raise InternalServerError(
-                f"bodies_by_department: upstream get_entities failed for department_id={department_id}: {e}"
+                "An unexpected error occurred while fetching entities for department"
             ) from e
 
         if not department_entity:
@@ -1147,10 +1144,9 @@ class OrganisationService:
             # This is the layer that would have caught the Neo4j DateTime parse error.
             logger.error(
                 f"bodies_by_department: fetch_relation FAILED — department_id={department_id!r}, "
-                f"relation={relation.model_dump()!r}, error={e!r}"
             )
             raise InternalServerError(
-                f"bodies_by_department: upstream fetch_relation failed for department_id={department_id}: {e}"
+                "An unexpected error occurred while fetching entities for department"
             ) from e
 
         logger.info(
