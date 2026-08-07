@@ -912,6 +912,90 @@ paths:
         "500":
           description: Server Error
 
+  /v1/portfolio/{portfolio_id}/persons:
+    post:
+      tags:
+        - Organization
+      summary: Get persons assigned to a portfolio on a given date.
+      description: Returns the enriched list of persons appointed to a given portfolio as of a specific date, along with precomputed summary counts and president/new-appointment flags.
+      operationId: getPortfolioPerson
+
+      parameters:
+        - name: portfolio_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the portfolio
+          example: "min-12"
+       
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - date
+              properties:
+                date:
+                  type: string
+                  format: date
+                  description: Date to query persons as-of
+                  example: "2026-04-21"
+
+      responses:
+        "200":
+          description: Successfully returned people for a specific portfolio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioPersonsResponse"
+              example:
+                totalCount: 1
+                newCount: 0
+                personList:
+                  - id: "cit-xx"
+                    name: "Test Person"
+                    isNew: false
+                    isPresident: false
+
+        "400":
+          description: Bad request - Invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+              example:
+                detail: "portfolio_id and date are required"
+
+        "404":
+          description: Portfolio not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+              example:
+                detail: "Portfolio not found"
+
+        "500":
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+              example:
+                detail: "An unexpected error occurred"
+
 components:
   schemas:
     Date:
@@ -1042,4 +1126,51 @@ components:
         name:
           type: string
         id:
+          type: string    
+     
+    PortfolioPersonsResponse:
+      type: object
+      required:
+        - totalCount
+        - newCount
+        - personList
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+          description: "Total number of persons — powers 'Total People' in Key Highlights"
+          example: 1
+        newCount:
+          type: integer
+          minimum: 0
+          description: "Count of persons where is_new is true — powers 'New People' in Key Highlights"
+          example: 0
+        personList:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortfolioPersonSummary"
+
+    PortfolioPersonSummary:
+      type: object
+      required:
+        - id
+        - name
+        - isNew
+        - isPresident
+      properties:
+        id:
           type: string
+          description: "Person ID"
+          example: "cit-xx"
+        name:
+          type: string
+          description: "Fully resolved, human-readable name (decoded server-side)"
+          example: "Test Person"
+        isNew:
+          type: boolean
+          description: "True if start_time falls on the queried date"
+          example: false
+        isPresident:
+          type: boolean
+          description: "True if this person is the currently selected president"
+          example: false
