@@ -1045,6 +1045,7 @@ class OrganisationService:
             entity = Entity(id=body_id)
             body_data = await self.opengin_service.get_entities(entity=entity)
 <<<<<<< HEAD
+<<<<<<< HEAD
         except (NotFoundError, BadRequestError):
             raise
         except Exception as e:
@@ -1064,13 +1065,22 @@ class OrganisationService:
             raise NotFoundError(
                 f"enrich_body_item: entity not found for id={body_id!r}"
             )
+=======
+        except (NotFoundError, BadRequestError):
+            raise
+>>>>>>> ea2d3a1 (refactor: Added e for server side logs)
         except Exception as e:
+            logger.info(f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}")
             raise InternalServerError(
-                f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}"
+                f"enrich_body_item: failed to fetch entity id={body_id!r}"
             )
 
         if not body_data:
+<<<<<<< HEAD
 >>>>>>> 35adb01 (refactor: added messges to exceptions)
+=======
+            logger.info(f"enrich_body_item: no entity data returned for id={body_id!r}")
+>>>>>>> ea2d3a1 (refactor: Added e for server side logs)
             raise NotFoundError(
                 f"enrich_body_item: no entity data returned for id={body_id!r}"
             )
@@ -1080,6 +1090,7 @@ class OrganisationService:
         try:
             name = Util.decode_protobuf_attribute_name(first_body.name)
         except Exception as e:
+<<<<<<< HEAD
 <<<<<<< HEAD
             logger.error(
                 f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
@@ -1092,6 +1103,14 @@ class OrganisationService:
                 f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
             )
 >>>>>>> 35adb01 (refactor: added messges to exceptions)
+=======
+            logger.info(
+                f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"enrich_body_item: failed to decode name for id={body_id!r}"
+            )
+>>>>>>> ea2d3a1 (refactor: Added e for server side logs)
 
         minor_kind = first_body.kind.minor
         body_start_date = Util.normalize_timestamp(body_relation.startTime)
@@ -1134,6 +1153,7 @@ class OrganisationService:
             raise BadRequestError("Selected date is required")
 
         normalized_date = Util.normalize_timestamp(selected_date)
+<<<<<<< HEAD
 
         try:
             department_entity = await self.opengin_service.get_entities(
@@ -1156,6 +1176,8 @@ class OrganisationService:
             raise NotFoundError(
                 f"bodies_by_department: department not found for id={department_id!r}"
             )
+=======
+>>>>>>> ea2d3a1 (refactor: Added e for server side logs)
 
         try:
             department_entity = await self.opengin_service.get_entities(
@@ -1164,11 +1186,17 @@ class OrganisationService:
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
-            raise InternalServerError(
+            logger.info(
                 f"bodies_by_department: failed to fetch department entity id={department_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch department entity id={department_id!r}"
             )
 
         if not department_entity:
+            logger.info(
+                f"bodies_by_department: department not found for id={department_id!r}"
+            )
             raise NotFoundError(
                 f"bodies_by_department: department not found for id={department_id!r}"
             )
@@ -1184,6 +1212,7 @@ class OrganisationService:
                 entityId=department_id, relation=relation
             )
         except (BadRequestError, NotFoundError):
+<<<<<<< HEAD
             raise
 <<<<<<< HEAD
         except Exception as e:
@@ -1195,15 +1224,26 @@ class OrganisationService:
             ) from e
 =======
         except NotFoundError:
+=======
+>>>>>>> ea2d3a1 (refactor: Added e for server side logs)
             raise
         except Exception as e:
-            raise InternalServerError(
+            logger.info(
                 f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}: {e}"
             )
+<<<<<<< HEAD
 >>>>>>> 35adb01 (refactor: added messges to exceptions)
 
         if not body_relation_list:
             logger.error(
+=======
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}"
+            )
+
+        if not body_relation_list:
+            logger.info(
+>>>>>>> ea2d3a1 (refactor: Added e for server side logs)
                 f"bodies_by_department: no relations found for department_id={department_id!r}"
             )
             return {
