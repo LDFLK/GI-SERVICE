@@ -1142,21 +1142,11 @@ class OrganisationService:
             department_entity = await self.opengin_service.get_entities(
                 entity=Entity(id=department_id)
             )
-        except NotFoundError as e:
-            logger.warning(
-                f"bodies_by_department: department not found — department_id={department_id!r}"
-            )
-            raise NotFoundError("Department not found") from e
-        except Exception as e:
-            raise InternalServerError(
-                "An unexpected error occurred while fetching entities for department"
-            ) from e
+        except (BadRequestError, NotFoundError):
+            raise
 
         if not department_entity:
-            logger.warning(
-                f"bodies_by_department: department not found — department_id={department_id!r}"
-            )
-            raise NotFoundError(f"Department not found: department_id={department_id}")
+            raise NotFoundError()
 
         relation = Relation(
             name=RelationNameEnum.AS_BODY.value,
