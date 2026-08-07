@@ -1097,7 +1097,7 @@ class OrganisationService:
         if not department_id:
             raise BadRequestError("Department ID is required")
 
-        if selected_date is None or selected_date == "":
+        if not selected_date:
             raise BadRequestError("Selected date is required")
 
         normalized_date = Util.normalize_timestamp(selected_date)
