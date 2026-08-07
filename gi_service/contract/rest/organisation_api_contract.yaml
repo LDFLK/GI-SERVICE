@@ -954,7 +954,7 @@ paths:
               example:
                 totalCount: 1
                 newCount: 0
-                persons:
+                personList:
                   - id: "cit-xx"
                     name: "Test Person"
                     isNew: false
@@ -1133,7 +1133,7 @@ components:
       required:
         - totalCount
         - newCount
-        - persons
+        - personList
       properties:
         totalCount:
           type: integer
@@ -1145,7 +1145,7 @@ components:
           minimum: 0
           description: "Count of persons where is_new is true — powers 'New People' in Key Highlights"
           example: 0
-        persons:
+        personList:
           type: array
           items:
             $ref: "#/components/schemas/PortfolioPersonSummary"
