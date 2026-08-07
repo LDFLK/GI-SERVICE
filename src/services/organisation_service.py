@@ -306,7 +306,7 @@ class OrganisationService:
                         ministriesUnderPresident += minister.get("isPresident", False)
 
             # final result to return
-            finalResult = {
+            final_result = {
                 "NoOfCabinetMinistries": len(activePortfolioList) - noOfStateMinistries,
                 "NoOfStateMinistries": noOfStateMinistries,
                 "newMinistries": newMinistries,
@@ -315,7 +315,7 @@ class OrganisationService:
                 "portfolioList": successful_portfolios,
             }
 
-            return finalResult
+            return final_result
 
         except (BadRequestError, NotFoundError):
             raise
@@ -422,13 +422,13 @@ class OrganisationService:
             new_departments = sum(1 for d in departments if d.get("isNew"))
 
             # final departments to return
-            finalResult = {
+            final_result = {
                 "totalDepartments": len(departments),
                 "newDepartments": new_departments,
                 "departmentList": departments,
             }
 
-            return finalResult
+            return final_result
 
         except (BadRequestError, NotFoundError):
             raise
@@ -1024,3 +1024,183 @@ class OrganisationService:
         except Exception as e:
             logger.error(f"Error in enrich_department_timeline: {e}")
             raise InternalServerError("An unexpected error occurred") from e
+
+    # helper: enrich body
+    async def enrich_body_item(self, body_relation: Relation, selected_date: str):
+        body_id = body_relation.relatedEntityId
+
+        if not body_id:
+            raise ValueError(
+                f"enrich_body_item: relation has no relatedEntityId — relation={body_relation!r}"
+            )
+
+        try:
+            entity = Entity(id=body_id)
+            body_data = await self.opengin_service.get_entities(entity=entity)
+        except (NotFoundError, BadRequestError):
+            raise
+        except Exception as e:
+            logger.info(f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}")
+            raise InternalServerError(
+                f"enrich_body_item: failed to fetch entity id={body_id!r}"
+            )
+
+        if not body_data:
+            logger.info(f"enrich_body_item: no entity data returned for id={body_id!r}")
+            raise NotFoundError(
+                f"enrich_body_item: no entity data returned for id={body_id!r}"
+            )
+
+        first_body = body_data[0]
+
+        try:
+            name = Util.decode_protobuf_attribute_name(first_body.name)
+        except Exception as e:
+            logger.info(
+                f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"enrich_body_item: failed to decode name for id={body_id!r}"
+            )
+
+        minor_kind = first_body.kind.minor
+        body_start_date = Util.normalize_timestamp(body_relation.startTime)
+        is_new = body_start_date == selected_date
+
+        return {
+            "id": body_id,
+            "name": name,
+            "isNew": is_new,
+            "type": minor_kind,
+        }
+
+    # API: Bodies by departments
+    async def bodies_by_department(self, department_id: str, selected_date: str):
+        """
+        Docstring for bodies_by_department
+
+        :param department_id: Department Id
+        :param selected_date: Selected Date
+
+        output type:
+        {
+            "totalBodies": 0,
+            "newBodies": 0,
+            "bodyList": [
+                {
+                "name": "",
+                "id": "",
+                "isNew": false,
+                "type": "",
+                },
+            ]
+        }
+        """
+
+        if not department_id:
+            raise BadRequestError("Department ID is required")
+
+        if not selected_date:
+            raise BadRequestError("Selected date is required")
+
+        normalized_date = Util.normalize_timestamp(selected_date)
+
+        try:
+            department_entity = await self.opengin_service.get_entities(
+                entity=Entity(id=department_id)
+            )
+        except (BadRequestError, NotFoundError):
+            raise
+        except Exception as e:
+            logger.info(
+                f"bodies_by_department: failed to fetch department entity id={department_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch department entity id={department_id!r}"
+            )
+
+        if not department_entity:
+            logger.info(
+                f"bodies_by_department: department not found for id={department_id!r}"
+            )
+            raise NotFoundError(
+                f"bodies_by_department: department not found for id={department_id!r}"
+            )
+
+        relation = Relation(
+            name=RelationNameEnum.AS_BODY.value,
+            activeAt=normalized_date,
+            direction=RelationDirectionEnum.OUTGOING.value,
+        )
+
+        try:
+            body_relation_list = await self.opengin_service.fetch_relation(
+                entityId=department_id, relation=relation
+            )
+        except (BadRequestError, NotFoundError):
+            raise
+        except Exception as e:
+            logger.info(
+                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}"
+            )
+
+        if not body_relation_list:
+            logger.info(
+                f"bodies_by_department: no relations found for department_id={department_id!r}"
+            )
+            return {
+                "totalBodies": 0,
+                "newBodies": 0,
+                "bodyList": [],
+            }
+
+        enrich_body_tasks = [
+            self.enrich_body_item(
+                body_relation=body_relation, selected_date=normalized_date
+            )
+            for body_relation in body_relation_list
+        ]
+
+        results = await asyncio.gather(*enrich_body_tasks, return_exceptions=True)
+
+        failures = []
+        bodies = []
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                related_id = body_relation_list[i].relatedEntityId
+                logger.error(
+                    f"bodies_by_department: enrich_body_item FAILED for relatedEntityId={related_id!r}: {r!r}"
+                )
+                failures.append({"relatedEntityId": related_id, "error": str(r)})
+            else:
+                bodies.append(r)
+
+        if failures and not bodies:
+            # every single enrichment failed — this is a real error, not "zero bodies"
+            raise InternalServerError(
+                f"bodies_by_department: all body enrichments failed for department_id={department_id!r}: {failures}"
+            )
+
+        if failures:
+            logger.warning(
+                f"bodies_by_department: {len(failures)} of {len(results)} enrichments failed "
+                f"for department_id={department_id!r}: {failures}"
+            )
+
+        new_bodies = sum(1 for d in bodies if d.get("isNew"))
+
+        final_result = {
+            "totalBodies": len(bodies),
+            "newBodies": new_bodies,
+            "bodyList": bodies,
+        }
+
+        logger.info(
+            f"bodies_by_department: done — department_id={department_id!r}, "
+            f"totalBodies={final_result['totalBodies']}, newBodies={final_result['newBodies']}"
+        )
+
+        return final_result

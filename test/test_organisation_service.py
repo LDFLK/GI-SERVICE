@@ -1228,3 +1228,548 @@ async def test_multiple_departments_aggregation(organisation_service):
 
     # Dependency should be called once per date
     assert organisation_service.get_ministers_and_departments.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_enrich_body_item_is_new_true(organisation_service, mock_opengin_service):
+    body_relation = Relation(
+        relatedEntityId="body_123",
+        startTime="2023-10-27T00:00:00Z",
+        endTime="2024-10-27T00:00:00Z",
+    )
+    selected_date = "2023-10-27T00:00:00Z"
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(
+            id="body_123",
+            name="mocked_protobuf_name",
+            kind={"major": "Body", "minor": "Council"},
+        )
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        return_value="National Police Academy",
+    ):
+        result = await organisation_service.enrich_body_item(
+            body_relation=body_relation, selected_date=selected_date
+        )
+
+    assert result == {
+        "id": "body_123",
+        "name": "National Police Academy",
+        "isNew": True,
+        "type": "Council",
+    }
+
+    mock_opengin_service.get_entities.assert_called_once_with(
+        entity=Entity(id="body_123")
+    )
+
+
+@pytest.mark.asyncio
+async def test_enrich_body_item_is_new_false(
+    organisation_service, mock_opengin_service
+):
+    body_relation = Relation(
+        relatedEntityId="body_123",
+        startTime="2020-01-01T00:00:00Z",
+        endTime="2024-10-27T00:00:00Z",
+    )
+    selected_date = "2023-10-27T00:00:00Z"
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(
+            id="body_123",
+            name="mocked_protobuf_name",
+            kind={"major": "Body", "minor": "Council"},
+        )
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        return_value="National Police Academy",
+    ):
+        result = await organisation_service.enrich_body_item(
+            body_relation=body_relation, selected_date=selected_date
+        )
+
+    assert result == {
+        "id": "body_123",
+        "name": "National Police Academy",
+        "isNew": False,
+        "type": "Council",
+    }
+
+
+@pytest.mark.asyncio
+async def test_enrich_body_item_empty_minor_kind(
+    organisation_service, mock_opengin_service
+):
+    body_relation = Relation(
+        relatedEntityId="body_123",
+        startTime="2023-10-27T00:00:00Z",
+        endTime="2024-10-27T00:00:00Z",
+    )
+    selected_date = "2023-10-27T00:00:00Z"
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id="body_123", name="mocked_protobuf_name")
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        return_value="Unnamed Body",
+    ):
+        result = await organisation_service.enrich_body_item(
+            body_relation=body_relation, selected_date=selected_date
+        )
+
+    assert result["type"] == ""
+
+
+@pytest.mark.asyncio
+async def test_enrich_body_item_missing_related_entity_id(organisation_service):
+    body_relation = Relation(
+        relatedEntityId="",
+        startTime="2023-10-27T00:00:00Z",
+        endTime="2024-10-27T00:00:00Z",
+    )
+
+    with pytest.raises(ValueError):
+        await organisation_service.enrich_body_item(
+            body_relation=body_relation, selected_date="2023-10-27T00:00:00Z"
+        )
+
+
+@pytest.mark.asyncio
+async def test_enrich_body_item_entity_not_found(
+    organisation_service, mock_opengin_service
+):
+    body_relation = Relation(
+        relatedEntityId="body_123",
+        startTime="2023-10-27T00:00:00Z",
+        endTime="2024-10-27T00:00:00Z",
+    )
+
+    mock_opengin_service.get_entities.side_effect = NotFoundError("Entity not found")
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.enrich_body_item(
+            body_relation=body_relation, selected_date="2023-10-27T00:00:00Z"
+        )
+
+
+@pytest.mark.asyncio
+async def test_enrich_body_item_get_entities_generic_error(
+    organisation_service, mock_opengin_service
+):
+    body_relation = Relation(
+        relatedEntityId="body_123",
+        startTime="2023-10-27T00:00:00Z",
+        endTime="2024-10-27T00:00:00Z",
+    )
+
+    mock_opengin_service.get_entities.side_effect = Exception("connection reset")
+
+    with pytest.raises(InternalServerError):
+        await organisation_service.enrich_body_item(
+            body_relation=body_relation, selected_date="2023-10-27T00:00:00Z"
+        )
+
+
+@pytest.mark.asyncio
+async def test_enrich_body_item_get_entities_empty_list(
+    organisation_service, mock_opengin_service
+):
+    body_relation = Relation(
+        relatedEntityId="body_123",
+        startTime="2023-10-27T00:00:00Z",
+        endTime="2024-10-27T00:00:00Z",
+    )
+
+    mock_opengin_service.get_entities.return_value = []
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.enrich_body_item(
+            body_relation=body_relation, selected_date="2023-10-27T00:00:00Z"
+        )
+
+
+@pytest.mark.asyncio
+async def test_enrich_body_item_name_decode_failure(
+    organisation_service, mock_opengin_service
+):
+    body_relation = Relation(
+        relatedEntityId="body_123",
+        startTime="2023-10-27T00:00:00Z",
+        endTime="2024-10-27T00:00:00Z",
+    )
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id="body_123", name="malformed_protobuf_bytes")
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        side_effect=ValueError("bad protobuf"),
+    ):
+        with pytest.raises(InternalServerError):
+            await organisation_service.enrich_body_item(
+                body_relation=body_relation, selected_date="2023-10-27T00:00:00Z"
+            )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_empty_department_id(organisation_service):
+    with pytest.raises(BadRequestError):
+        await organisation_service.bodies_by_department(
+            department_id="", selected_date="2023-10-27"
+        )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_none_department_id(organisation_service):
+    with pytest.raises(BadRequestError):
+        await organisation_service.bodies_by_department(
+            department_id=None, selected_date="2023-10-27"
+        )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_empty_selected_date(organisation_service):
+    with pytest.raises(BadRequestError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date=""
+        )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_none_selected_date(organisation_service):
+    with pytest.raises(BadRequestError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date=None
+        )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_department_not_found(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.get_entities.side_effect = NotFoundError("not found")
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="2023-10-27"
+        )
+
+    mock_opengin_service.fetch_relation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_get_entities_generic_error(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.get_entities.side_effect = Exception("connection reset")
+
+    with pytest.raises(InternalServerError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="2023-10-27"
+        )
+
+    mock_opengin_service.fetch_relation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_department_entity_empty_list(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.get_entities.return_value = []
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="2023-10-27"
+        )
+
+    mock_opengin_service.fetch_relation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_fetch_relation_bad_request(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
+    mock_opengin_service.fetch_relation.side_effect = BadRequestError("bad request")
+
+    with pytest.raises(BadRequestError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="2023-10-27"
+        )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_fetch_relation_not_found(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
+    mock_opengin_service.fetch_relation.side_effect = NotFoundError("not found")
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="2023-10-27"
+        )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_fetch_relation_generic_error(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
+    # simulates the Neo4j DateTime parse error class of failure
+    mock_opengin_service.fetch_relation.side_effect = Exception(
+        "Neo4jError: Neo.ClientError.Statement.SyntaxError"
+    )
+
+    with pytest.raises(InternalServerError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="2023-10-27"
+        )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_no_relations_found(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
+    mock_opengin_service.fetch_relation.return_value = []
+
+    result = await organisation_service.bodies_by_department(
+        department_id="department_123", selected_date="2023-10-27"
+    )
+
+    assert result == {
+        "totalBodies": 0,
+        "newBodies": 0,
+        "bodyList": [],
+    }
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_success(organisation_service, mock_opengin_service):
+    department_id = "department_123"
+    selected_date = "2023-10-27"
+
+    mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(
+            id="",
+            relatedEntityId="body_1",
+            name=RelationNameEnum.AS_BODY.value,
+            startTime="2023-10-27T00:00:00Z",
+            endTime="",
+            direction=RelationDirectionEnum.OUTGOING.value,
+        ),
+        Relation(
+            id="",
+            relatedEntityId="body_2",
+            name=RelationNameEnum.AS_BODY.value,
+            startTime="2020-01-01T00:00:00Z",
+            endTime="",
+            direction=RelationDirectionEnum.OUTGOING.value,
+        ),
+    ]
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_body_item",
+        new_callable=AsyncMock,
+    ) as mock_enrich_body:
+        mock_enrich_body.side_effect = [
+            {
+                "id": "body_1",
+                "name": "National Police Academy",
+                "isNew": True,
+                "type": "Council",
+            },
+            {
+                "id": "body_2",
+                "name": "Assets vested to the Treasury",
+                "isNew": False,
+                "type": "",
+            },
+        ]
+
+        result = await organisation_service.bodies_by_department(
+            department_id=department_id, selected_date=selected_date
+        )
+
+    assert result == {
+        "totalBodies": 2,
+        "newBodies": 1,
+        "bodyList": [
+            {
+                "id": "body_1",
+                "name": "National Police Academy",
+                "isNew": True,
+                "type": "Council",
+            },
+            {
+                "id": "body_2",
+                "name": "Assets vested to the Treasury",
+                "isNew": False,
+                "type": "",
+            },
+        ],
+    }
+
+    mock_opengin_service.get_entities.assert_called_once_with(
+        entity=Entity(id=department_id)
+    )
+    mock_opengin_service.fetch_relation.assert_called_once_with(
+        entityId=department_id,
+        relation=Relation(
+            name=RelationNameEnum.AS_BODY.value,
+            activeAt=Util.normalize_timestamp(selected_date),
+            direction=RelationDirectionEnum.OUTGOING.value,
+        ),
+    )
+    assert mock_enrich_body.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_partial_enrichment_failure(
+    organisation_service, mock_opengin_service
+):
+    department_id = "department_123"
+    selected_date = "2023-10-27"
+
+    mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(
+            id="",
+            relatedEntityId="body_1",
+            name=RelationNameEnum.AS_BODY.value,
+            startTime="2023-10-27T00:00:00Z",
+            endTime="",
+            direction=RelationDirectionEnum.OUTGOING.value,
+        ),
+        Relation(
+            id="",
+            relatedEntityId="body_2",
+            name=RelationNameEnum.AS_BODY.value,
+            startTime="2020-01-01T00:00:00Z",
+            endTime="",
+            direction=RelationDirectionEnum.OUTGOING.value,
+        ),
+    ]
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_body_item",
+        new_callable=AsyncMock,
+    ) as mock_enrich_body:
+        mock_enrich_body.side_effect = [
+            {
+                "id": "body_1",
+                "name": "National Police Academy",
+                "isNew": True,
+                "type": "Council",
+            },
+            InternalServerError("enrichment failed for body_2"),
+        ]
+
+        result = await organisation_service.bodies_by_department(
+            department_id=department_id, selected_date=selected_date
+        )
+
+    assert result == {
+        "totalBodies": 1,
+        "newBodies": 1,
+        "bodyList": [
+            {
+                "id": "body_1",
+                "name": "National Police Academy",
+                "isNew": True,
+                "type": "Council",
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_all_enrichments_fail(
+    organisation_service, mock_opengin_service
+):
+    department_id = "department_123"
+    selected_date = "2023-10-27"
+
+    mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(
+            id="",
+            relatedEntityId="body_1",
+            name=RelationNameEnum.AS_BODY.value,
+            startTime="2023-10-27T00:00:00Z",
+            endTime="",
+            direction=RelationDirectionEnum.OUTGOING.value,
+        ),
+        Relation(
+            id="",
+            relatedEntityId="body_2",
+            name=RelationNameEnum.AS_BODY.value,
+            startTime="2020-01-01T00:00:00Z",
+            endTime="",
+            direction=RelationDirectionEnum.OUTGOING.value,
+        ),
+    ]
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_body_item",
+        new_callable=AsyncMock,
+    ) as mock_enrich_body:
+        mock_enrich_body.side_effect = [
+            InternalServerError("enrichment failed for body_1"),
+            InternalServerError("enrichment failed for body_2"),
+        ]
+
+        with pytest.raises(InternalServerError):
+            await organisation_service.bodies_by_department(
+                department_id=department_id, selected_date=selected_date
+            )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_passes_normalized_date_to_enrich(
+    organisation_service, mock_opengin_service
+):
+    department_id = "department_123"
+    selected_date = "2023-10-27"
+    normalized_date = Util.normalize_timestamp(selected_date)
+
+    body_relation = Relation(
+        id="",
+        relatedEntityId="body_1",
+        name=RelationNameEnum.AS_BODY.value,
+        startTime=normalized_date,
+        endTime="",
+        direction=RelationDirectionEnum.OUTGOING.value,
+    )
+    mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
+    mock_opengin_service.fetch_relation.return_value = [body_relation]
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_body_item",
+        new_callable=AsyncMock,
+    ) as mock_enrich_body:
+        mock_enrich_body.return_value = {
+            "id": "body_1",
+            "name": "National Police Academy",
+            "isNew": True,
+            "type": "Council",
+        }
+
+        await organisation_service.bodies_by_department(
+            department_id=department_id, selected_date=selected_date
+        )
+
+    mock_enrich_body.assert_called_once_with(
+        body_relation=body_relation, selected_date=normalized_date
+    )
