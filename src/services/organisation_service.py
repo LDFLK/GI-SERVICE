@@ -1191,6 +1191,9 @@ class OrganisationService:
 
         if failures and not bodies:
             # every single enrichment failed — this is a real error, not "zero bodies"
+            logger.error(
+                f"bodies_by_department: all body enrichments failed for department_id={department_id!r}"
+            )
             raise InternalServerError(
                 f"bodies_by_department: all body enrichments failed for department_id={department_id!r}: {failures}"
             )
