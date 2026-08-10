@@ -1257,10 +1257,14 @@ async def test_enrich_body_item_is_new(
     with patch(
         "src.services.organisation_service.Util.decode_protobuf_attribute_name",
 <<<<<<< HEAD
+<<<<<<< HEAD
         return_value="decoded_name",
 =======
         return_value="Test name 1",
 >>>>>>> 1ec3f64 (refactor: added dummy data for test)
+=======
+        return_value="decoded_name",
+>>>>>>> d9e59b9 (refactor: added parameterized tests)
     ):
         result = await organisation_service.enrich_body_item(
             body_relation=body_relation, selected_date=selected_date
@@ -1268,6 +1272,7 @@ async def test_enrich_body_item_is_new(
 
     assert result == {
         "id": "body_123",
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
         "name": "decoded_name",
@@ -1279,6 +1284,10 @@ async def test_enrich_body_item_is_new(
 >>>>>>> 1ec3f64 (refactor: added dummy data for test)
         "isNew": True,
 >>>>>>> 450b247 (refactor: changed tests for the correct word)
+=======
+        "name": "decoded_name",
+        "isNew": expected_is_new,
+>>>>>>> d9e59b9 (refactor: added parameterized tests)
         "type": "Council",
     }
 
@@ -1288,6 +1297,7 @@ async def test_enrich_body_item_is_new(
 
 
 @pytest.mark.asyncio
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 async def test_enrich_body_item_is_new_false(
@@ -1326,6 +1336,8 @@ async def test_enrich_body_item_is_new_false(
 
 @pytest.mark.asyncio
 >>>>>>> 450b247 (refactor: changed tests for the correct word)
+=======
+>>>>>>> d9e59b9 (refactor: added parameterized tests)
 async def test_enrich_body_item_empty_minor_kind(
     organisation_service, mock_opengin_service
 ):
