@@ -889,41 +889,12 @@ paths:
                     isPresident: false
 
         "400":
-          description: Bad request - Invalid parameters
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  detail:
-                    type: string
-              example:
-                detail: "portfolio_id and date are required"
-
+          description: Bad request
         "404":
-          description: Portfolio not found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  detail:
-                    type: string
-              example:
-                detail: "Portfolio not found"
-
+          description: Not found
         "500":
           description: Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  detail:
-                    type: string
-              example:
-                detail: "An unexpected error occurred"
-
+          
 components:
   schemas:
     Date:
