@@ -1108,6 +1108,7 @@ class OrganisationService:
             raise InternalServerError(
                 f"enrich_body_item: failed to decode name for id={body_id!r}"
             ) from e
+<<<<<<< HEAD
 =======
             raise InternalServerError(
                 f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
@@ -1124,6 +1125,8 @@ class OrganisationService:
                 f"enrich_body_item: failed to decode name for id={body_id!r}"
             )
 >>>>>>> ea2d3a1 (refactor: Added e for server side logs)
+=======
+>>>>>>> bab91b7 (refactor: added from e for the logs to get clear stack trace)
 
         minor_kind = first_body.kind.minor
         body_start_date = Util.normalize_timestamp(body_relation.startTime)
@@ -1204,7 +1207,7 @@ class OrganisationService:
             )
             raise InternalServerError(
                 f"bodies_by_department: failed to fetch department entity id={department_id!r}"
-            )
+            ) from e
 
         if not department_entity:
             logger.error(
@@ -1235,6 +1238,7 @@ class OrganisationService:
             raise InternalServerError(
                 f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}"
             ) from e
+<<<<<<< HEAD
 =======
         except NotFoundError:
 =======
@@ -1246,6 +1250,8 @@ class OrganisationService:
             )
 <<<<<<< HEAD
 >>>>>>> 35adb01 (refactor: added messges to exceptions)
+=======
+>>>>>>> bab91b7 (refactor: added from e for the logs to get clear stack trace)
 
         if not body_relation_list:
             logger.error(
