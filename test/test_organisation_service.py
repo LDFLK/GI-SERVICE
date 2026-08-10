@@ -1231,14 +1231,21 @@ async def test_multiple_departments_aggregation(organisation_service):
 
 
 @pytest.mark.asyncio
-async def test_enrich_body_item_is_new_true(organisation_service, mock_opengin_service):
-    body_relation = Relation(
-        relatedEntityId="body_123",
-        startTime="2023-10-27T00:00:00Z",
-        endTime="2024-10-27T00:00:00Z",
-    )
-    selected_date = "2023-10-27T00:00:00Z"
-
+@pytest.mark.parametrize(
+    "start_time, selected_date, expected_is_new",
+    [
+        ("2023-10-27T00:00:00Z", "2023-10-27T00:00:00Z", True),
+        ("2020-01-01T00:00:00Z", "2023-10-27T00:00:00Z", False),
+    ],
+)
+async def test_enrich_body_item_is_new(
+    organisation_service,
+    mock_opengin_service,
+    start_time,
+    selected_date,
+    expected_is_new,
+):
+    body_relation = Relation(relatedEntityId="body_123", startTime=start_time)
     mock_opengin_service.get_entities.return_value = [
         Entity(
             id="body_123",
@@ -1249,7 +1256,7 @@ async def test_enrich_body_item_is_new_true(organisation_service, mock_opengin_s
 
     with patch(
         "src.services.organisation_service.Util.decode_protobuf_attribute_name",
-        return_value="Test name 1",
+        return_value="decoded_name",
     ):
         result = await organisation_service.enrich_body_item(
             body_relation=body_relation, selected_date=selected_date
@@ -1257,49 +1264,14 @@ async def test_enrich_body_item_is_new_true(organisation_service, mock_opengin_s
 
     assert result == {
         "id": "body_123",
-        "name": "Test name 1",
-        "isNew": True,
+        "name": "decoded_name",
+        "isNew": expected_is_new,
         "type": "Council",
     }
 
     mock_opengin_service.get_entities.assert_called_once_with(
         entity=Entity(id="body_123")
     )
-
-
-@pytest.mark.asyncio
-async def test_enrich_body_item_is_new_false(
-    organisation_service, mock_opengin_service
-):
-    body_relation = Relation(
-        relatedEntityId="body_123",
-        startTime="2020-01-01T00:00:00Z",
-        endTime="2024-10-27T00:00:00Z",
-    )
-    selected_date = "2023-10-27T00:00:00Z"
-
-    mock_opengin_service.get_entities.return_value = [
-        Entity(
-            id="body_123",
-            name="mocked_protobuf_name",
-            kind={"major": "Body", "minor": "Council"},
-        )
-    ]
-
-    with patch(
-        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
-        return_value="National Police Academy",
-    ):
-        result = await organisation_service.enrich_body_item(
-            body_relation=body_relation, selected_date=selected_date
-        )
-
-    assert result == {
-        "id": "body_123",
-        "name": "National Police Academy",
-        "isNew": False,
-        "type": "Council",
-    }
 
 
 @pytest.mark.asyncio
@@ -1586,13 +1558,13 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
         mock_enrich_body.side_effect = [
             {
                 "id": "body_1",
-                "name": "National Police Academy",
+                "name": "Test Body 1",
                 "isNew": True,
                 "type": "Council",
             },
             {
                 "id": "body_2",
-                "name": "Assets vested to the Treasury",
+                "name": "Test Body 2",
                 "isNew": False,
                 "type": "",
             },
@@ -1608,13 +1580,13 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
         "bodyList": [
             {
                 "id": "body_1",
-                "name": "National Police Academy",
+                "name": "Test Body 1",
                 "isNew": True,
                 "type": "Council",
             },
             {
                 "id": "body_2",
-                "name": "Assets vested to the Treasury",
+                "name": "Test Body 2",
                 "isNew": False,
                 "type": "",
             },
@@ -1669,7 +1641,7 @@ async def test_bodies_by_department_partial_enrichment_failure(
         mock_enrich_body.side_effect = [
             {
                 "id": "body_1",
-                "name": "National Police Academy",
+                "name": "Test Body 1",
                 "isNew": True,
                 "type": "Council",
             },
@@ -1686,7 +1658,7 @@ async def test_bodies_by_department_partial_enrichment_failure(
         "bodyList": [
             {
                 "id": "body_1",
-                "name": "National Police Academy",
+                "name": "Test Body 1",
                 "isNew": True,
                 "type": "Council",
             }
@@ -1761,7 +1733,7 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
     ) as mock_enrich_body:
         mock_enrich_body.return_value = {
             "id": "body_1",
-            "name": "National Police Academy",
+            "name": "Test Body 1",
             "isNew": True,
             "type": "Council",
         }
