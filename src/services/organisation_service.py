@@ -1047,13 +1047,17 @@ class OrganisationService:
         except (NotFoundError, BadRequestError):
             raise
         except Exception as e:
-            logger.info(f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}")
+            logger.error(
+                f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}"
+            )
             raise InternalServerError(
                 f"enrich_body_item: failed to fetch entity id={body_id!r}"
             )
 
         if not body_data:
-            logger.info(f"enrich_body_item: no entity data returned for id={body_id!r}")
+            logger.error(
+                f"enrich_body_item: no entity data returned for id={body_id!r}"
+            )
             raise NotFoundError(
                 f"enrich_body_item: no entity data returned for id={body_id!r}"
             )
@@ -1063,7 +1067,7 @@ class OrganisationService:
         try:
             name = Util.decode_protobuf_attribute_name(first_body.name)
         except Exception as e:
-            logger.info(
+            logger.error(
                 f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
             )
             raise InternalServerError(
@@ -1119,7 +1123,7 @@ class OrganisationService:
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
-            logger.info(
+            logger.error(
                 f"bodies_by_department: failed to fetch department entity id={department_id!r}: {e}"
             )
             raise InternalServerError(
@@ -1127,7 +1131,7 @@ class OrganisationService:
             )
 
         if not department_entity:
-            logger.info(
+            logger.error(
                 f"bodies_by_department: department not found for id={department_id!r}"
             )
             raise NotFoundError(
@@ -1147,7 +1151,7 @@ class OrganisationService:
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
-            logger.info(
+            logger.error(
                 f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}: {e}"
             )
             raise InternalServerError(
@@ -1155,7 +1159,7 @@ class OrganisationService:
             )
 
         if not body_relation_list:
-            logger.info(
+            logger.error(
                 f"bodies_by_department: no relations found for department_id={department_id!r}"
             )
             return {
