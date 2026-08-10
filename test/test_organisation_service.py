@@ -1256,7 +1256,11 @@ async def test_enrich_body_item_is_new(
 
     with patch(
         "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+<<<<<<< HEAD
         return_value="decoded_name",
+=======
+        return_value="Test name 1",
+>>>>>>> 1ec3f64 (refactor: added dummy data for test)
     ):
         result = await organisation_service.enrich_body_item(
             body_relation=body_relation, selected_date=selected_date
@@ -1265,10 +1269,14 @@ async def test_enrich_body_item_is_new(
     assert result == {
         "id": "body_123",
 <<<<<<< HEAD
+<<<<<<< HEAD
         "name": "decoded_name",
         "isNew": expected_is_new,
 =======
         "name": "National Police Academy",
+=======
+        "name": "Test name 1",
+>>>>>>> 1ec3f64 (refactor: added dummy data for test)
         "isNew": True,
 >>>>>>> 450b247 (refactor: changed tests for the correct word)
         "type": "Council",
