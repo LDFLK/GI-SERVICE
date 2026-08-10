@@ -1299,11 +1299,17 @@ class OrganisationService:
         if failures and not bodies:
             # every single enrichment failed — this is a real error, not "zero bodies"
 <<<<<<< HEAD
+<<<<<<< HEAD
             logger.error(
                 f"bodies_by_department: all body enrichments failed for department_id={department_id!r}"
             )
 =======
 >>>>>>> 35adb01 (refactor: added messges to exceptions)
+=======
+            logger.error(
+                f"bodies_by_department: all body enrichments failed for department_id={department_id!r}"
+            )
+>>>>>>> 83c59a5 (refactor: added log for not found bodies)
             raise InternalServerError(
                 f"bodies_by_department: all body enrichments failed for department_id={department_id!r}: {failures}"
             )
