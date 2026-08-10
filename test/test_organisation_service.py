@@ -1249,7 +1249,7 @@ async def test_enrich_body_item_is_new_true(organisation_service, mock_opengin_s
 
     with patch(
         "src.services.organisation_service.Util.decode_protobuf_attribute_name",
-        return_value="National Police Academy",
+        return_value="Test name 1",
     ):
         result = await organisation_service.enrich_body_item(
             body_relation=body_relation, selected_date=selected_date
@@ -1257,7 +1257,7 @@ async def test_enrich_body_item_is_new_true(organisation_service, mock_opengin_s
 
     assert result == {
         "id": "body_123",
-        "name": "National Police Academy",
+        "name": "Test name 1",
         "isNew": True,
         "type": "Council",
     }
