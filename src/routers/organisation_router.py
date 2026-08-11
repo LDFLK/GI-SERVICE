@@ -91,3 +91,17 @@ async def department_history_timeline(
         department_id=department_id
     )
     return service_response
+
+@router.post(
+    "portfolio/{portfolio_id}/persons",
+    summary="Get persons assigned to a portfolio on a given date.",
+    description="Returns the enriched list of persons appointed to a given portfolio as of a specific date, along with precomputed summary counts and president/new-appointment flags.",
+)
+async def get_portfolio_persons(
+    portfolio_id: str = Path(..., description="ID of the portfolio"),
+    body: Date = Body(...),
+    service: OrganisationService = Depends(get_organisation_service),
+):
+    return await service.get_persons_by_portfolio(
+        portfolio_id=portfolio_id, selected_date=body.date
+    )

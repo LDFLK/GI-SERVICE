@@ -1024,3 +1024,91 @@ class OrganisationService:
         except Exception as e:
             logger.error(f"Error in enrich_department_timeline: {e}")
             raise InternalServerError("An unexpected error occurred") from e
+
+    # helper: get president active on a given date
+    async def _get_active_president_id(self, selected_date: str) -> str:
+        relation = Relation(
+            name=RelationNameEnum.AS_PRESIDENT.value,
+            activeAt=Util.normalize_timestamp(selected_date),
+            direction=RelationDirectionEnum.OUTGOING.value,
+        )
+        president_relations = await self.opengin_service.fetch_relation(
+            entityId=EntityIdEnum.GOVERNMENT.value, relation=relation
+        )
+        return president_relations[0].relatedEntityId if president_relations else None
+
+    # API: Active person for a given portfolio at a given time
+    async def get_persons_by_portfolio(self, portfolio_id: str, selected_date: str):
+        """
+        Fetch the active portfolio list and then inside it fetch the data relevant to the people tab of it.
+        """
+        if portfolio_id is None or portfolio_id == "":
+            raise BadRequestError("Portfolio ID is required")
+
+        if selected_date is None or selected_date == "":
+            raise BadRequestError("Selected date is required")
+
+        try:
+            try:
+                await self.opengin_service.get_entities(entity=Entity(id=portfolio_id))
+            except NotFoundError as e:
+                raise NotFoundError("Portfolio not found for the given ID") from e
+
+            # resolve the president active on this date (used for isPresident flag / fallback)
+            president_id = await self._get_active_president_id(selected_date)
+
+            relation = Relation(
+                name=RelationNameEnum.AS_APPOINTED.value,
+                activeAt=Util.normalize_timestamp(selected_date),
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
+            appointed_ministers = await self.opengin_service.fetch_relation(
+                entityId=portfolio_id, relation=relation
+            )
+
+            if appointed_ministers:
+                person_tasks = [
+                    self.enrich_person_data(
+                        person_relation=person,
+                        president_id=president_id,
+                        selected_date=selected_date,
+                    )
+                    for person in appointed_ministers
+                ]
+            else:
+                # no minister appointed -> the president stands in, mirrors enrich_portfolio_item
+                person_tasks = [
+                    self.enrich_person_data(
+                        president_id=president_id,
+                        is_president=True,
+                        selected_date=selected_date,
+                    )
+                ]
+
+            results = await asyncio.gather(*person_tasks, return_exceptions=True)
+
+            person_list = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(
+                        f"Error enriching person for portfolio {portfolio_id}: {result}"
+                    )
+                else:
+                    person_list.append(result)
+
+            if results and not person_list:
+                raise InternalServerError("Failed to process persons for portfolio")
+
+            new_count = sum(1 for p in person_list if p.get("isNew"))
+
+            return {
+                "totalCount": len(person_list),
+                "newCount": new_count,
+                "personList": person_list,
+            }
+
+        except (BadRequestError, NotFoundError):
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching persons for portfolio {portfolio_id}: {e}")
+            raise InternalServerError("An unexpected error occurred") from e
