@@ -1,3 +1,4 @@
+import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from src.enums import EntityIdEnum, RelationDirectionEnum, RelationNameEnum
@@ -1266,13 +1267,19 @@ async def test_fetch_presidents_success(organisation_service, mock_opengin_servi
         term1_gazettes = president["tenureList"][0]["gazetteList"]
         assert len(term1_gazettes) == 1
         assert term1_gazettes[0]["date"] == "2020-05-01"
-        assert "org_gzt" in term1_gazettes[0]["idList"]
+        assert isinstance(term1_gazettes[0]["idList"], list)
+        assert term1_gazettes[0]["idList"] == ["org_gzt"]
 
         # Check gazettes are inside the second term (2022 term)
         term2_gazettes = president["tenureList"][1]["gazetteList"]
         assert len(term2_gazettes) == 1
         assert term2_gazettes[0]["date"] == "2022-08-01"
-        assert "per_gzt" in term2_gazettes[0]["idList"]
+        assert isinstance(term2_gazettes[0]["idList"], list)
+        assert term2_gazettes[0]["idList"] == ["per_gzt"]
+
+        # Verify JSON serializability of the entire response
+        json_output = json.dumps(result)
+        assert isinstance(json_output, str)
 
 
 @pytest.mark.asyncio

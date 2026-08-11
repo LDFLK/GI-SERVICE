@@ -1,3 +1,4 @@
+from collections import defaultdict
 from src.enums import KindMinorEnum
 from src.enums import KindMajorEnum
 from src.models import Kind
@@ -1134,29 +1135,25 @@ class OrganisationService:
                     decoded_name = Util.decode_protobuf_attribute_name(entity.name)
                     presidents_map[president_id]["name"] = decoded_name
 
-            # Combine all gazettes into a single list
-            all_gazettes = []
+            gazettes_by_date = defaultdict(set)
             for gazette_result in (organization_gazettes, person_gazettes):
-                if not isinstance(gazette_result, Exception) and gazette_result:
-                    all_gazettes.extend(gazette_result)
-
-            # Group all gazettes globally by date first
-            gazettes_by_date = {}
-            for gazette in all_gazettes:
-                if not gazette.created:
-                    logger.warning("Skipping gazette with empty created date")
+                if isinstance(gazette_result, Exception) or not gazette_result:
                     continue
-                date = gazette.created.split("T")[0]
-                try:
-                    gazette_id = Util.decode_protobuf_attribute_name(gazette.name)
-                except Exception:
-                    logger.warning("Could not decode gazette name")
-                    gazette_id = "Unknown"
+                for gazette in gazette_result:
+                    if not gazette.created:
+                        logger.warning("Skipping gazette with empty created date")
+                        continue
+                    date = gazette.created.split("T")[0]
+                    try:
+                        gazette_id = Util.decode_protobuf_attribute_name(gazette.name)
+                    except Exception:
+                        logger.warning("Could not decode gazette name")
+                        gazette_id = "Unknown"
 
-                if date not in gazettes_by_date:
-                    gazettes_by_date[date] = []
-                if gazette_id not in gazettes_by_date[date]:
-                    gazettes_by_date[date].append(gazette_id)
+                    gazettes_by_date[date].add(gazette_id)
+
+            # Convert sets back to lists
+            gazettes_by_date = {k: list(v) for k, v in gazettes_by_date.items()}
 
             # Sort both lists for chronological processing
             all_terms.sort(key=lambda x: x["start"])
