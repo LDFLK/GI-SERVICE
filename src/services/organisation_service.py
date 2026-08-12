@@ -1055,11 +1055,6 @@ class OrganisationService:
             logger.error(
                 f"enrich_body_item: no entity data returned for id={body_id!r}"
             )
-        except Exception as e:
-            logger.info(f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}")
-            raise InternalServerError(
-                f"enrich_body_item: failed to fetch entity id={body_id!r}"
-            )
 
         if not body_data:
             logger.info(f"enrich_body_item: no entity data returned for id={body_id!r}")
@@ -1081,12 +1076,6 @@ class OrganisationService:
             raise InternalServerError(
                 f"enrich_body_item: failed to decode name for id={body_id!r}"
             ) from e
-            logger.error(
-                f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
-            )
-            raise InternalServerError(
-                f"enrich_body_item: failed to decode name for id={body_id!r}"
-            )
 
         minor_kind = first_body.kind.minor
         body_start_date = Util.normalize_timestamp(body_relation.startTime)
@@ -1129,28 +1118,6 @@ class OrganisationService:
             raise BadRequestError("Selected date is required")
 
         normalized_date = Util.normalize_timestamp(selected_date)
-
-        try:
-            department_entity = await self.opengin_service.get_entities(
-                entity=Entity(id=department_id)
-            )
-        except (BadRequestError, NotFoundError):
-            raise
-        except Exception as e:
-            logger.error(
-                f"bodies_by_department: failed to fetch department entity id={department_id!r}: {e}"
-            )
-            raise InternalServerError(
-                f"bodies_by_department: failed to fetch department entity id={department_id!r}"
-            ) from e
-
-        if not department_entity:
-            logger.error(
-                f"bodies_by_department: department not found for id={department_id!r}"
-            )
-            raise NotFoundError(
-                f"bodies_by_department: department not found for id={department_id!r}"
-            )
 
         try:
             department_entity = await self.opengin_service.get_entities(
