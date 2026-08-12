@@ -1,3 +1,4 @@
+import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from src.enums import EntityIdEnum, RelationDirectionEnum, RelationNameEnum
@@ -1256,15 +1257,7 @@ async def test_enrich_body_item_is_new(
 
     with patch(
         "src.services.organisation_service.Util.decode_protobuf_attribute_name",
-<<<<<<< HEAD
-<<<<<<< HEAD
         return_value="decoded_name",
-=======
-        return_value="Test name 1",
->>>>>>> 1ec3f64 (refactor: added dummy data for test)
-=======
-        return_value="decoded_name",
->>>>>>> d9e59b9 (refactor: added parameterized tests)
     ):
         result = await organisation_service.enrich_body_item(
             body_relation=body_relation, selected_date=selected_date
@@ -1272,22 +1265,8 @@ async def test_enrich_body_item_is_new(
 
     assert result == {
         "id": "body_123",
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
         "name": "decoded_name",
         "isNew": expected_is_new,
-=======
-        "name": "National Police Academy",
-=======
-        "name": "Test name 1",
->>>>>>> 1ec3f64 (refactor: added dummy data for test)
-        "isNew": True,
->>>>>>> 450b247 (refactor: changed tests for the correct word)
-=======
-        "name": "decoded_name",
-        "isNew": expected_is_new,
->>>>>>> d9e59b9 (refactor: added parameterized tests)
         "type": "Council",
     }
 
@@ -1297,47 +1276,6 @@ async def test_enrich_body_item_is_new(
 
 
 @pytest.mark.asyncio
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-async def test_enrich_body_item_is_new_false(
-    organisation_service, mock_opengin_service
-):
-    body_relation = Relation(
-        relatedEntityId="body_123",
-        startTime="2020-01-01T00:00:00Z",
-        endTime="2024-10-27T00:00:00Z",
-    )
-    selected_date = "2023-10-27T00:00:00Z"
-
-    mock_opengin_service.get_entities.return_value = [
-        Entity(
-            id="body_123",
-            name="mocked_protobuf_name",
-            kind={"major": "Body", "minor": "Council"},
-        )
-    ]
-
-    with patch(
-        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
-        return_value="National Police Academy",
-    ):
-        result = await organisation_service.enrich_body_item(
-            body_relation=body_relation, selected_date=selected_date
-        )
-
-    assert result == {
-        "id": "body_123",
-        "name": "National Police Academy",
-        "isNew": False,
-        "type": "Council",
-    }
-
-
-@pytest.mark.asyncio
->>>>>>> 450b247 (refactor: changed tests for the correct word)
-=======
->>>>>>> d9e59b9 (refactor: added parameterized tests)
 async def test_enrich_body_item_empty_minor_kind(
     organisation_service, mock_opengin_service
 ):
@@ -1351,6 +1289,40 @@ async def test_enrich_body_item_empty_minor_kind(
     mock_opengin_service.get_entities.return_value = [
         Entity(id="body_123", name="mocked_protobuf_name")
     ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        return_value="Unnamed Body",
+    ):
+        result = await organisation_service.enrich_body_item(
+            body_relation=body_relation, selected_date=selected_date
+        )
+
+    assert result["type"] == ""
+
+@pytest.mark.asyncio
+async def test_fetch_presidents_no_gazettes(organisation_service, mock_opengin_service):
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(relatedEntityId="p1", startTime="2020-01-01T00:00:00Z", endTime="")
+    ]
+
+    mock_opengin_service.get_entities.side_effect = [
+        [],  # No organization gazettes
+        [],  # No person gazettes
+        [Entity(id="p1", name="President One")],
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
+        result = await organisation_service.fetch_presidents()
+
+        presidents = result["body"]
+        assert len(presidents) == 1
+        assert presidents[0]["name"] == "President One"
+        assert presidents[0]["tenureList"][0]["gazetteList"] == []
+
 
     with patch(
         "src.services.organisation_service.Util.decode_protobuf_attribute_name",
@@ -1575,15 +1547,7 @@ async def test_bodies_by_department_department_entity_empty_list(
 async def test_bodies_by_department_fetch_relation_bad_request(
     organisation_service, mock_opengin_service
 ):
-<<<<<<< HEAD
-<<<<<<< HEAD
     mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
-=======
-    mock_opengin_service.fetch_entity.return_value = Entity(id="department_123")
->>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
-=======
-    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
->>>>>>> 8998a46 (tests: added unit tests)
     mock_opengin_service.fetch_relation.side_effect = BadRequestError("bad request")
 
     with pytest.raises(BadRequestError):
@@ -1596,15 +1560,7 @@ async def test_bodies_by_department_fetch_relation_bad_request(
 async def test_bodies_by_department_fetch_relation_not_found(
     organisation_service, mock_opengin_service
 ):
-<<<<<<< HEAD
-<<<<<<< HEAD
-    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
-=======
     mock_opengin_service.fetch_entity.return_value = Entity(id="department_123")
->>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
-=======
-    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
->>>>>>> 8998a46 (tests: added unit tests)
     mock_opengin_service.fetch_relation.side_effect = NotFoundError("not found")
 
     with pytest.raises(NotFoundError):
@@ -1617,15 +1573,7 @@ async def test_bodies_by_department_fetch_relation_not_found(
 async def test_bodies_by_department_fetch_relation_generic_error(
     organisation_service, mock_opengin_service
 ):
-<<<<<<< HEAD
-<<<<<<< HEAD
-    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
-=======
     mock_opengin_service.fetch_entity.return_value = Entity(id="department_123")
->>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
-=======
-    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
->>>>>>> 8998a46 (tests: added unit tests)
     # simulates the Neo4j DateTime parse error class of failure
     mock_opengin_service.fetch_relation.side_effect = Exception(
         "Neo4jError: Neo.ClientError.Statement.SyntaxError"
@@ -1641,15 +1589,7 @@ async def test_bodies_by_department_fetch_relation_generic_error(
 async def test_bodies_by_department_no_relations_found(
     organisation_service, mock_opengin_service
 ):
-<<<<<<< HEAD
-<<<<<<< HEAD
-    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
-=======
     mock_opengin_service.fetch_entity.return_value = Entity(id="department_123")
->>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
-=======
-    mock_opengin_service.get_entities.return_value = [Entity(id="department_123")]
->>>>>>> 8998a46 (tests: added unit tests)
     mock_opengin_service.fetch_relation.return_value = []
 
     result = await organisation_service.bodies_by_department(
@@ -1668,15 +1608,7 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
     department_id = "department_123"
     selected_date = "2023-10-27"
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
-=======
     mock_opengin_service.fetch_entity.return_value = Entity(id=department_id)
->>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
-=======
-    mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
->>>>>>> 8998a46 (tests: added unit tests)
     mock_opengin_service.fetch_relation.return_value = [
         Relation(
             id="",
@@ -1738,19 +1670,10 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
         ],
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    mock_opengin_service.get_entities.assert_called_once_with(
-        entity=Entity(id=department_id)
-    )
-=======
     mock_opengin_service.fetch_entity.assert_called_once_with(entityId=department_id)
->>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
-=======
     mock_opengin_service.get_entities.assert_called_once_with(
         entity=Entity(id=department_id)
     )
->>>>>>> 8998a46 (tests: added unit tests)
     mock_opengin_service.fetch_relation.assert_called_once_with(
         entityId=department_id,
         relation=Relation(
@@ -1769,15 +1692,8 @@ async def test_bodies_by_department_partial_enrichment_failure(
     department_id = "department_123"
     selected_date = "2023-10-27"
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
-=======
     mock_opengin_service.fetch_entity.return_value = Entity(id=department_id)
->>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
-=======
     mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
->>>>>>> 8998a46 (tests: added unit tests)
     mock_opengin_service.fetch_relation.return_value = [
         Relation(
             id="",
@@ -1836,15 +1752,8 @@ async def test_bodies_by_department_all_enrichments_fail(
     department_id = "department_123"
     selected_date = "2023-10-27"
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-    mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
-=======
     mock_opengin_service.fetch_entity.return_value = Entity(id=department_id)
->>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
-=======
     mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
->>>>>>> 8998a46 (tests: added unit tests)
     mock_opengin_service.fetch_relation.return_value = [
         Relation(
             id="",
@@ -1895,15 +1804,8 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
         endTime="",
         direction=RelationDirectionEnum.OUTGOING.value,
     )
-<<<<<<< HEAD
-<<<<<<< HEAD
-    mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
-=======
     mock_opengin_service.fetch_entity.return_value = Entity(id=department_id)
->>>>>>> 5635703 (refactor: changed unit tests according to the changes done to the response body)
-=======
     mock_opengin_service.get_entities.return_value = [Entity(id=department_id)]
->>>>>>> 8998a46 (tests: added unit tests)
     mock_opengin_service.fetch_relation.return_value = [body_relation]
 
     with patch(
@@ -1924,3 +1826,114 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
     mock_enrich_body.assert_called_once_with(
         body_relation=body_relation, selected_date=normalized_date
     )
+        side_effect=lambda x: x,
+    ):
+        result = await organisation_service.fetch_presidents()
+
+        presidents = result["body"]
+        assert len(presidents) == 1
+        assert presidents[0]["name"] == "President One"
+        assert presidents[0]["tenureList"][0]["gazetteList"] == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_presidents_sorting_with_multiple_terms(
+    organisation_service, mock_opengin_service
+):
+    # Setup:
+    # p_old started in 2010
+    # p_multi started in 2005 AND 2022.
+    # Even though p_multi has a 2005 term, their 2022 term should put them at the TOP.
+
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(
+            relatedEntityId="p_old",
+            startTime="2010-01-01T00:00:00Z",
+            endTime="2015-01-01T00:00:00Z",
+        ),
+        Relation(
+            relatedEntityId="p_multi",
+            startTime="2005-01-01T00:00:00Z",
+            endTime="2009-12-31T00:00:00Z",
+        ),
+        Relation(
+            relatedEntityId="p_multi", startTime="2022-01-01T00:00:00Z", endTime=""
+        ),
+    ]
+
+    mock_opengin_service.get_entities.side_effect = [
+        [],
+        [],  # no gazettes for either
+        [Entity(id="p_old", name="Old President")],
+        [Entity(id="p_multi", name="Multi-term President")],
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
+        result = await organisation_service.fetch_presidents()
+
+        presidents = result["body"]
+
+        # p_multi should be first because 2022 > 2010
+        assert presidents[0]["id"] == "p_multi"
+        assert presidents[1]["id"] == "p_old"
+
+
+@pytest.mark.asyncio
+async def test_fetch_presidents_internal_error(
+    organisation_service, mock_opengin_service
+):
+    mock_opengin_service.fetch_relation.side_effect = Exception("Database down")
+
+    with pytest.raises(InternalServerError):
+        await organisation_service.fetch_presidents()
+
+
+@pytest.mark.asyncio
+async def test_fetch_presidents_gazette_on_last_day_of_tenure_is_included(
+    organisation_service, mock_opengin_service
+):
+    """
+    A gazette published on the EXACT endDate of a tenure must be included
+    in that tenure's gazetteList.
+    """
+    # p1 has a single tenure ending on 2022-01-01
+    mock_opengin_service.fetch_relation.return_value = [
+        Relation(
+            relatedEntityId="p1",
+            startTime="2020-01-01T00:00:00Z",
+            endTime="2022-01-01T00:00:00Z",  # last day is 2022-01-01
+        ),
+    ]
+
+    # The gazette is published on the exact last day of p1's tenure
+    mock_opengin_service.get_entities.side_effect = [
+        [
+            Entity(created="2022-01-01T00:00:00Z", name="last_day_gazette")
+        ],  # org gazettes
+        [],  # person gazettes
+        [Entity(id="p1", name="President One")],  # p1 name fetch
+    ]
+
+    with patch(
+        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
+        side_effect=lambda x: x,
+    ):
+        result = await organisation_service.fetch_presidents()
+
+        presidents = result["body"]
+        assert len(presidents) == 1
+        president = presidents[0]
+        assert president["id"] == "p1"
+        assert president["name"] == "President One"
+        assert len(president["tenureList"]) == 1
+
+        tenure = president["tenureList"][0]
+        assert tenure["endDate"] == "2022-01-01"
+
+        # The gazette on the exact last day must be INCLUDED, not dropped
+        assert len(tenure["gazetteList"]) == 1
+        assert tenure["gazetteList"][0]["date"] == "2022-01-01"
+        assert "last_day_gazette" in tenure["gazetteList"][0]["idList"]
