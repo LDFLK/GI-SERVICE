@@ -42,10 +42,10 @@ async def connect_cache() -> None:
     """
     await cache.connect()
     if isinstance(cache, RedisCache):
-        singleflight._redis = cache.client
+        singleflight.bind_redis(cache.client)
 
 
 async def close_cache() -> None:
     if isinstance(cache, RedisCache):
-        singleflight._redis = None
+        singleflight.bind_redis(None)
     await cache.close()

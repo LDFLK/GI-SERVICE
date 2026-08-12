@@ -58,6 +58,10 @@ class SingleFlight:
     def _lock_key(self, key: str) -> str:
         return f"{self._lock_prefix}{key}"
 
+    def bind_redis(self, redis_client: Any | None) -> None:
+        """Attach or detach the shared Redis client used for distributed locks."""
+        self._redis = redis_client
+
     async def _try_acquire_lock(self, key: str) -> str | None:
         """Return owner token if acquired, None if another holder has the lock.
 
