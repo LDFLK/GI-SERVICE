@@ -159,49 +159,6 @@ paths:
               example:
                 detail: "An unexpected error occurred"
 
-  /v1/person/all-presidents:
-    get:
-      tags:
-        - Person
-      summary: Get all presidents.
-      description: Returns a list of all presidents with their terms and gazettes published during those terms.
-      operationId: getAllPresidents
-      responses:
-        "200":
-          description: Successfully returned all presidents
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AllPresidentsResponse"
-              example:
-                presidents:
-                  - id: "pres-1"
-                    name: "John Doe"
-                    terms:
-                      - start: "2010-01-01"
-                        end: "2015-01-01"
-                        gazettes_published:
-                          - date: "2012-05-15"
-                            ids: ["gzt-101", "gzt-102"]
-                  - id: "pres-2"
-                    name: "Jane Smith"
-                    terms:
-                      - start: "2015-01-01"
-                        end: null
-                        gazettes_published: []
-
-        "500":
-          description: Server Error
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  detail:
-                    type: string
-              example:
-                detail: "An unexpected error occurred"
-
 components:
   schemas:
     MinistryHistoryItem:
