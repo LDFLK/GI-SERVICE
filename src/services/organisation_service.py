@@ -1116,6 +1116,7 @@ class OrganisationService:
         except Exception as e:
             logger.error(f"Error fetching persons for portfolio {portfolio_id}: {e}")
             raise InternalServerError("An unexpected error occurred") from e
+
     # API: fetch presidents with terms and gazettes sorted by date
     async def fetch_presidents(self):
         """
