@@ -1029,18 +1029,6 @@ class OrganisationService:
             logger.error(f"Error in enrich_department_timeline: {e}")
             raise InternalServerError("An unexpected error occurred") from e
 
-    # helper: get president active on a given date
-    async def _get_active_president_id(self, selected_date: str) -> str:
-        relation = Relation(
-            name=RelationNameEnum.AS_PRESIDENT.value,
-            activeAt=Util.normalize_timestamp(selected_date),
-            direction=RelationDirectionEnum.OUTGOING.value,
-        )
-        president_relations = await self.opengin_service.fetch_relation(
-            entityId=EntityIdEnum.GOVERNMENT.value, relation=relation
-        )
-        return president_relations[0].relatedEntityId if president_relations else None
-
     # API: Active person for a given portfolio at a given time
     async def get_persons_by_portfolio(self, portfolio_id: str, selected_date: str):
         """
@@ -1058,8 +1046,19 @@ class OrganisationService:
             except NotFoundError as e:
                 raise NotFoundError("Portfolio not found for the given ID") from e
 
-            # resolve the president active on this date (used for isPresident flag / fallback)
-            president_id = await self._get_active_president_id(selected_date)
+            # resolve the president active on this date (used as fallback minister
+            # when no one is appointed to the portfolio)
+            president_relation_lookup = Relation(
+                name=RelationNameEnum.AS_PRESIDENT.value,
+                activeAt=Util.normalize_timestamp(selected_date),
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
+            president_relations = await self.opengin_service.fetch_relation(
+                entityId=EntityIdEnum.GOVERNMENT.value, relation=president_relation_lookup
+            )
+            president_id = (
+                president_relations[0].relatedEntityId if president_relations else None
+            )
 
             relation = Relation(
                 name=RelationNameEnum.AS_APPOINTED.value,
@@ -1081,6 +1080,11 @@ class OrganisationService:
                 ]
             else:
                 # no minister appointed -> the president stands in, mirrors enrich_portfolio_item
+                if president_id is None:
+                    raise NotFoundError(
+                        f"No minister appointed and no active president found for date {selected_date}"
+                    )
+
                 person_tasks = [
                     self.enrich_person_data(
                         president_id=president_id,
@@ -1095,10 +1099,31 @@ class OrganisationService:
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
                     logger.error(
-                        f"Error enriching person for portfolio {portfolio_id}: {result}"
+                        f"Error enriching person for portfolio {portfolio_id}: {result}",
+                        exc_info=result,
                     )
                 else:
                     person_list.append(result)
+
+            # for each person, check if they have an incoming AS_PRESIDENT
+            # relation from the government node, active at selected_date
+            for person in person_list:
+                try:
+                    president_relation = Relation(
+                        name=RelationNameEnum.AS_PRESIDENT.value,
+                        activeAt=Util.normalize_timestamp(selected_date),
+                        direction=RelationDirectionEnum.INCOMING.value,
+                    )
+                    president_check = await self.opengin_service.fetch_relation(
+                        entityId=person["id"], relation=president_relation
+                    )
+                    person["isPresident"] = bool(president_check)
+                except Exception as e:
+                    logger.error(
+                        f"Error checking president relation for {person.get('id')}: {e}",
+                        exc_info=True,
+                    )
+                    person["isPresident"] = False
 
             if results and not person_list:
                 raise InternalServerError("Failed to process persons for portfolio")
@@ -1114,9 +1139,12 @@ class OrganisationService:
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
-            logger.error(f"Error fetching persons for portfolio {portfolio_id}: {e}")
+            logger.error(
+                f"Error fetching persons for portfolio {portfolio_id}: {e}",
+                exc_info=True,
+            )
             raise InternalServerError("An unexpected error occurred") from e
-
+        
     # API: fetch presidents with terms and gazettes sorted by date
     async def fetch_presidents(self):
         """
