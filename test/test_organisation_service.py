@@ -1463,78 +1463,6 @@ async def test_enrich_body_item_is_new(
 
 
 @pytest.mark.asyncio
-async def test_enrich_body_item_is_new_true(organisation_service, mock_opengin_service):
-    body_relation = Relation(
-        relatedEntityId="body_123",
-        startTime="2023-10-27T00:00:00Z",
-        endTime="2024-10-27T00:00:00Z",
-    )
-    selected_date = "2023-10-27T00:00:00Z"
-
-    mock_opengin_service.get_entities.return_value = [
-        Entity(
-            id="body_123",
-            name="mocked_protobuf_name",
-            kind={"major": "Body", "minor": "Council"},
-        )
-    ]
-
-    with patch(
-        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
-        return_value="National Police Academy",
-    ):
-        result = await organisation_service.enrich_body_item(
-            body_relation=body_relation, selected_date=selected_date
-        )
-
-    assert result == {
-        "id": "body_123",
-        "name": "National Police Academy",
-        "isNew": True,
-        "type": "Council",
-    }
-
-    mock_opengin_service.get_entities.assert_called_once_with(
-        entity=Entity(id="body_123")
-    )
-
-
-@pytest.mark.asyncio
-async def test_enrich_body_item_is_new_false(
-    organisation_service, mock_opengin_service
-):
-    body_relation = Relation(
-        relatedEntityId="body_123",
-        startTime="2020-01-01T00:00:00Z",
-        endTime="2024-10-27T00:00:00Z",
-    )
-    selected_date = "2023-10-27T00:00:00Z"
-
-    mock_opengin_service.get_entities.return_value = [
-        Entity(
-            id="body_123",
-            name="mocked_protobuf_name",
-            kind={"major": "Body", "minor": "Council"},
-        )
-    ]
-
-    with patch(
-        "src.services.organisation_service.Util.decode_protobuf_attribute_name",
-        return_value="National Police Academy",
-    ):
-        result = await organisation_service.enrich_body_item(
-            body_relation=body_relation, selected_date=selected_date
-        )
-
-    assert result == {
-        "id": "body_123",
-        "name": "National Police Academy",
-        "isNew": False,
-        "type": "Council",
-    }
-
-
-@pytest.mark.asyncio
 async def test_enrich_body_item_empty_minor_kind(
     organisation_service, mock_opengin_service
 ):
@@ -1818,13 +1746,13 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
         mock_enrich_body.side_effect = [
             {
                 "id": "body_1",
-                "name": "National Police Academy",
+                "name": "Body 1 Name",
                 "isNew": True,
                 "type": "Council",
             },
             {
                 "id": "body_2",
-                "name": "Assets vested to the Treasury",
+                "name": "Body 2 Name",
                 "isNew": False,
                 "type": "",
             },
@@ -1840,13 +1768,13 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
         "bodyList": [
             {
                 "id": "body_1",
-                "name": "National Police Academy",
+                "name": "Body 1 Name",
                 "isNew": True,
                 "type": "Council",
             },
             {
                 "id": "body_2",
-                "name": "Assets vested to the Treasury",
+                "name": "Body 2 Name",
                 "isNew": False,
                 "type": "",
             },
@@ -1901,7 +1829,7 @@ async def test_bodies_by_department_partial_enrichment_failure(
         mock_enrich_body.side_effect = [
             {
                 "id": "body_1",
-                "name": "National Police Academy",
+                "name": "Body 1 Name",
                 "isNew": True,
                 "type": "Council",
             },
@@ -1918,7 +1846,7 @@ async def test_bodies_by_department_partial_enrichment_failure(
         "bodyList": [
             {
                 "id": "body_1",
-                "name": "National Police Academy",
+                "name": "Body 1 Name",
                 "isNew": True,
                 "type": "Council",
             }
@@ -1993,7 +1921,7 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
     ) as mock_enrich_body:
         mock_enrich_body.return_value = {
             "id": "body_1",
-            "name": "National Police Academy",
+            "name": "Body 1 Name",
             "isNew": True,
             "type": "Council",
         }
