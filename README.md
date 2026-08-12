@@ -47,6 +47,7 @@ flowchart LR
 - Python 3.8 to 3.13
 - pip (Python package installer)
 - Git
+- Redis 7+ (optional — only required when `CACHE_ENABLED=true`)
 
 ### Installation & Setup
 
@@ -86,9 +87,50 @@ flowchart LR
    # Base URLs for Read(Query) services in OpenGIN
    BASE_URL_QUERY=http://0.0.0.0:8081
    ALLOWED_ORIGINS=http://localhost:3000
+
+   # Cache (optional — set CACHE_ENABLED=true and start Redis to enable)
+   CACHE_ENABLED=false
+   REDIS_URL=redis://localhost:6379/0
    ```
 
-4. **Run the Application**
+4. **Redis (optional — for caching)**
+
+   Caching is **off by default** (`CACHE_ENABLED=false`), so GI-SERVICE runs without Redis for local dev and tests. Enable it when you want response caching and cross-worker lock deduplication (SingleFlight).
+
+   **Install and run Redis locally**
+
+   ```bash
+   # macOS (Homebrew)
+   brew install redis
+   redis-server
+
+   # Ubuntu/Debian
+   sudo apt install redis-server
+   redis-server
+
+   # Verify Redis is running
+   redis-cli ping
+   # Expected: PONG
+   ```
+
+   Redis runs in the current terminal in the foreground. Stop it with `Ctrl+C`.
+
+   **Enable caching in `.env`**
+
+   ```env
+   CACHE_ENABLED=true
+   REDIS_URL=redis://localhost:6379/0
+   REDIS_MAX_CONNECTIONS=200
+   REDIS_POOL_TIMEOUT_SECONDS=5
+   CACHE_KEY_PREFIX=gi:v1
+   CACHE_TTL_SECONDS=604800
+   ```
+
+   Use `localhost` when running GI-SERVICE manually. Docker Compose uses the internal hostname `redis` instead (see Method 2).
+
+   If `CACHE_ENABLED=true` but Redis is not reachable, the app **will fail on startup**. Leave `CACHE_ENABLED=false` to run without Redis.
+
+5. **Run the Application**
 
    ```bash
    # Development server
@@ -97,7 +139,7 @@ flowchart LR
 
    The API will be available at: `http://localhost:8000`
 
-5. **Run Tests & Linting**
+6. **Run Tests & Linting**
 
    ```bash
    # Run tests
@@ -112,15 +154,24 @@ flowchart LR
 
 ### Method 2 (Docker)
 
-   ```bash
-   # Make sure docker daemon running
-   
-   # Up containers 
-   docker compose up 
+Docker Compose starts **both** GI-SERVICE and Redis. Redis is enabled automatically with `CACHE_ENABLED=true` and `REDIS_URL=redis://redis:6379/0`.
 
-   # Build & Up containers
+   ```bash
+   # Make sure Docker daemon is running
+
+   # Start containers
+   docker compose up
+
+   # Build and start containers
    docker compose up --build
    ```
+
+This brings up:
+
+| Service    | URL / Port            |
+|------------|-----------------------|
+| GI-SERVICE | http://localhost:8000 |
+| Redis      | localhost:6379        |
 
 ## API Documentation
 
@@ -142,6 +193,12 @@ Once the server is running, you can access:
 |----------|-------------|---------|
 | `BASE_URL_QUERY` | Query(Read) OpenGIN service URL | `http://0.0.0.0:8081` |
 | `ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins (e.g. `https://example.com,http://localhost:3000`). This must be configured. | `None (required)` |
+| `CACHE_ENABLED` | Enable Redis-backed response caching and SingleFlight locks | `false` |
+| `REDIS_URL` | Redis connection URL. Use `redis://localhost:6379/0` for manual runs; `redis://redis:6379/0` inside Docker Compose | `""` |
+| `REDIS_MAX_CONNECTIONS` | Maximum Redis connections per GI-SERVICE worker before requests wait for a free pooled connection | `200` |
+| `REDIS_POOL_TIMEOUT_SECONDS` | How long a Redis operation waits for a pooled connection before failing | `5` |
+| `CACHE_KEY_PREFIX` | Prefix for cache keys | `gi:v1` |
+| `CACHE_TTL_SECONDS` | Default cache TTL in seconds | `604800` (7 days) |
 
 ## Contributing
 

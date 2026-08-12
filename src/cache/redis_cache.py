@@ -11,7 +11,9 @@ import logging
 from typing import Any
 
 from redis.asyncio import Redis
+from redis.asyncio.connection import BlockingConnectionPool
 from redis.exceptions import RedisError
+from src.core import settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +39,15 @@ class RedisCache:
 
     async def connect(self) -> None:
         if self._client is None:
-            # decode_responses=True → str keys/values; we JSON-encode payloads ourselves
-            self._client = Redis.from_url(self._redis_url, decode_responses=True)
+            # Use a blocking pool so short Redis bursts wait briefly for a free
+            # connection instead of immediately fail-opening on pool exhaustion.
+            pool = BlockingConnectionPool.from_url(
+                self._redis_url,
+                decode_responses=True,
+                max_connections=settings.REDIS_MAX_CONNECTIONS,
+                timeout=settings.REDIS_POOL_TIMEOUT_SECONDS,
+            )
+            self._client = Redis(connection_pool=pool)
             await self._client.ping()
             logger.info("Redis cache connected")
 

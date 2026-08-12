@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from redis.exceptions import ConnectionError as RedisConnectionError
+from src.core import settings
 
 from src.cache import InMemoryCache, RedisCache, SingleFlight
 from src.cache import app_cache as app_cache_mod
@@ -92,3 +93,27 @@ async def test_connect_cache_fails_startup_when_redis_unreachable():
                     await app_cache_mod.connect_cache()
                 # Assert inside the patch context, before the value is restored.
                 assert app_cache_mod.singleflight._redis is None
+
+
+@pytest.mark.asyncio
+async def test_redis_cache_connect_uses_blocking_pool_settings():
+    cache = RedisCache("redis://localhost:6379/0")
+    fake_client = AsyncMock()
+    fake_pool = object()
+
+    with patch("src.cache.redis_cache.BlockingConnectionPool.from_url") as from_url:
+        with patch("src.cache.redis_cache.Redis") as redis_cls:
+            from_url.return_value = fake_pool
+            redis_cls.return_value = fake_client
+
+            await cache.connect()
+
+    from_url.assert_called_once_with(
+        "redis://localhost:6379/0",
+        decode_responses=True,
+        max_connections=settings.REDIS_MAX_CONNECTIONS,
+        timeout=settings.REDIS_POOL_TIMEOUT_SECONDS,
+    )
+    redis_cls.assert_called_once_with(connection_pool=fake_pool)
+    fake_client.ping.assert_awaited_once()
+    assert cache.client is fake_client

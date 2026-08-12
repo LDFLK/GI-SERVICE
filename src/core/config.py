@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # Cache — off by default so tests/local runs need no Redis
     CACHE_ENABLED: bool = False
     REDIS_URL: str = ""
+    REDIS_MAX_CONNECTIONS: int = 200
+    REDIS_POOL_TIMEOUT_SECONDS: float = 5.0
     CACHE_KEY_PREFIX: str = "gi:v1"
     CACHE_TTL_SECONDS: int = 604_800  # 7 days
 
