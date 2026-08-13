@@ -1134,112 +1134,6 @@ class OrganisationService:
                 "personList": person_list,
             }
 
-
-    # API: Active person for a given portfolio at a given time
-    async def get_persons_by_portfolio(self, portfolio_id: str, selected_date: str):
-        """
-        Fetch the active portfolio list and then inside it fetch the data relevant to the people tab of it.
-        """
-
-        # Need to check if actual portfolio is present
-        if portfolio_id is None or portfolio_id == "":
-            raise BadRequestError("Portfolio ID is required")
-
-        if selected_date is None or selected_date == "":
-            raise BadRequestError("Selected date is required")
-
-        try:
-            # confirm the portfolio entity actually exists before doing any other work
-            portfolio_entities = await self.opengin_service.get_entities(
-                entity=Entity(id=portfolio_id)
-            )
-            if not portfolio_entities:
-                raise NotFoundError("Portfolio not found for the given ID")
-
-            # resolve the president active on this date (used as fallback minister
-            # when no one is appointed to the portfolio)
-            president_relation_lookup = Relation(
-                name=RelationNameEnum.AS_PRESIDENT.value,
-                activeAt=Util.normalize_timestamp(selected_date),
-                direction=RelationDirectionEnum.OUTGOING.value,
-            )
-            president_relations = await self.opengin_service.fetch_relation(
-                entityId=EntityIdEnum.GOVERNMENT.value,
-                relation=president_relation_lookup,
-            )
-
-            # data integrity check - there should never be more than one active
-            # president for a given date
-            if president_relations and len(president_relations) > 1:
-                raise InternalServerError(
-                    f"Multiple active presidents found for date {selected_date}"
-                )
-
-            president_id = (
-                president_relations[0].relatedEntityId if president_relations else None
-            )
-
-            relation = Relation(
-                name=RelationNameEnum.AS_APPOINTED.value,
-                activeAt=Util.normalize_timestamp(selected_date),
-                direction=RelationDirectionEnum.OUTGOING.value,
-            )
-            appointed_ministers = await self.opengin_service.fetch_relation(
-                entityId=portfolio_id, relation=relation
-            )
-
-            if appointed_ministers:
-                person_tasks = [
-                    self.enrich_person_data(
-                        person_relation=person,
-                        president_id=president_id,
-                        selected_date=selected_date,
-                    )
-                    for person in appointed_ministers
-                ]
-            else:
-                # no minister appointed then the president stands in, mirrors enrich_portfolio_item
-                if president_id is None:
-                    raise NotFoundError(
-                        f"No minister appointed and no active president found for date {selected_date}"
-                    )
-
-                person_tasks = [
-                    self.enrich_person_data(
-                        president_id=president_id,
-                        is_president=True,
-                        selected_date=selected_date,
-                    )
-                ]
-
-            results = await asyncio.gather(*person_tasks, return_exceptions=True)
-
-            person_list = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    logger.error(
-                        f"Error enriching person for portfolio {portfolio_id}: {result}",
-                        exc_info=result,
-                    )
-                else:
-                    person_list.append(result)
-
-            # isPresident is derived from the already-resolved president_id,
-            # no extra relation lookups needed
-            for person in person_list:
-                person["isPresident"] = person["id"] == president_id
-
-            if results and not person_list:
-                raise InternalServerError("Failed to process persons for portfolio")
-
-            new_count = sum(1 for p in person_list if p.get("isNew"))
-
-            return {
-                "totalCount": len(person_list),
-                "newCount": new_count,
-                "personList": person_list,
-            }
-
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
@@ -1250,7 +1144,7 @@ class OrganisationService:
             raise InternalServerError("An unexpected error occurred") from e
 
         
-     async def enrich_body_item(self, body_relation: Relation, selected_date: str):
+    async def enrich_body_item(self, body_relation: Relation, selected_date: str):
 
         body_id = body_relation.relatedEntityId
 
