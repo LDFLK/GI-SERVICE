@@ -1218,11 +1218,6 @@ class OrganisationService:
             "bodyList": bodies,
         }
 
-        logger.info(
-            f"bodies_by_department: done — department_id={department_id!r}, "
-            f"totalBodies={final_result['totalBodies']}, newBodies={final_result['newBodies']}"
-        )
-
         return final_result
 
     # API: fetch presidents with terms and gazettes sorted by date
