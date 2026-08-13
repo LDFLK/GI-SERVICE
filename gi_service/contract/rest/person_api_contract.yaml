@@ -270,4 +270,3 @@ components:
           type: integer
           description: "The person's age"
           examples: [45]
-

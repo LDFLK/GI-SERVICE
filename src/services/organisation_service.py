@@ -1034,6 +1034,8 @@ class OrganisationService:
         """
         Fetch the active portfolio list and then inside it fetch the data relevant to the people tab of it.
         """
+
+        # Need to check if actual portfolio is present
         if portfolio_id is None or portfolio_id == "":
             raise BadRequestError("Portfolio ID is required")
 
@@ -1041,10 +1043,12 @@ class OrganisationService:
             raise BadRequestError("Selected date is required")
 
         try:
-            try:
-                await self.opengin_service.get_entities(entity=Entity(id=portfolio_id))
-            except NotFoundError as e:
-                raise NotFoundError("Portfolio not found for the given ID") from e
+            # confirm the portfolio entity actually exists before doing any other work
+            portfolio_entities = await self.opengin_service.get_entities(
+                entity=Entity(id=portfolio_id)
+            )
+            if not portfolio_entities:
+                raise NotFoundError("Portfolio not found for the given ID")
 
             # resolve the president active on this date (used as fallback minister
             # when no one is appointed to the portfolio)
@@ -1057,6 +1061,14 @@ class OrganisationService:
                 entityId=EntityIdEnum.GOVERNMENT.value,
                 relation=president_relation_lookup,
             )
+
+            # data integrity check - there should never be more than one active
+            # president for a given date
+            if president_relations and len(president_relations) > 1:
+                raise InternalServerError(
+                    f"Multiple active presidents found for date {selected_date}"
+                )
+
             president_id = (
                 president_relations[0].relatedEntityId if president_relations else None
             )
@@ -1080,7 +1092,7 @@ class OrganisationService:
                     for person in appointed_ministers
                 ]
             else:
-                # no minister appointed -> the president stands in, mirrors enrich_portfolio_item
+                # no minister appointed then the president stands in, mirrors enrich_portfolio_item
                 if president_id is None:
                     raise NotFoundError(
                         f"No minister appointed and no active president found for date {selected_date}"
@@ -1144,8 +1156,8 @@ class OrganisationService:
                 f"Error fetching persons for portfolio {portfolio_id}: {e}",
                 exc_info=True,
             )
-            raise InternalServerError("An unexpected error occurred") from e
-
+            raise InternalServerError("An unexpected error occurred")
+             
     # API: fetch presidents with terms and gazettes sorted by date
     async def fetch_presidents(self):
         """
