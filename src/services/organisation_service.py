@@ -1054,7 +1054,8 @@ class OrganisationService:
                 direction=RelationDirectionEnum.OUTGOING.value,
             )
             president_relations = await self.opengin_service.fetch_relation(
-                entityId=EntityIdEnum.GOVERNMENT.value, relation=president_relation_lookup
+                entityId=EntityIdEnum.GOVERNMENT.value,
+                relation=president_relation_lookup,
             )
             president_id = (
                 president_relations[0].relatedEntityId if president_relations else None
@@ -1144,7 +1145,7 @@ class OrganisationService:
                 exc_info=True,
             )
             raise InternalServerError("An unexpected error occurred") from e
-        
+
     # API: fetch presidents with terms and gazettes sorted by date
     async def fetch_presidents(self):
         """
