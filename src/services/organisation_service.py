@@ -1032,7 +1032,7 @@ class OrganisationService:
     # API: Active person for a given portfolio at a given time
     async def get_persons_by_portfolio(self, portfolio_id: str, selected_date: str):
         """
-        Fetch the active portfolio list and then inside it fetch the data relevant to the people tab of it.
+        Fetch the active portfolio and then fetch the people assigned to the portfolio.
         """
 
         # Need to check if actual portfolio is present
@@ -1109,7 +1109,7 @@ class OrganisationService:
             results = await asyncio.gather(*person_tasks, return_exceptions=True)
 
             person_list = []
-            for i, result in enumerate(results):
+            for result in results:
                 if isinstance(result, Exception):
                     logger.error(
                         f"Error enriching person for portfolio {portfolio_id}: {result}",
@@ -1117,11 +1117,6 @@ class OrganisationService:
                     )
                 else:
                     person_list.append(result)
-
-            # isPresident is derived from the already-resolved president_id,
-            # no extra relation lookups needed
-            for person in person_list:
-                person["isPresident"] = person["id"] == president_id
 
             if results and not person_list:
                 raise InternalServerError("Failed to process persons for portfolio")
