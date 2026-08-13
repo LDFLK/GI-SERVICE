@@ -310,7 +310,7 @@ class OrganisationService:
                         ministriesUnderPresident += minister.get("isPresident", False)
 
             # final result to return
-            finalResult = {
+            final_result = {
                 "NoOfCabinetMinistries": len(activePortfolioList) - noOfStateMinistries,
                 "NoOfStateMinistries": noOfStateMinistries,
                 "newMinistries": newMinistries,
@@ -319,7 +319,7 @@ class OrganisationService:
                 "portfolioList": successful_portfolios,
             }
 
-            return finalResult
+            return final_result
 
         except (BadRequestError, NotFoundError):
             raise
@@ -426,13 +426,13 @@ class OrganisationService:
             new_departments = sum(1 for d in departments if d.get("isNew"))
 
             # final departments to return
-            finalResult = {
+            final_result = {
                 "totalDepartments": len(departments),
                 "newDepartments": new_departments,
                 "departmentList": departments,
             }
 
-            return finalResult
+            return final_result
 
         except (BadRequestError, NotFoundError):
             raise
@@ -1134,6 +1134,112 @@ class OrganisationService:
                 "personList": person_list,
             }
 
+
+    # API: Active person for a given portfolio at a given time
+    async def get_persons_by_portfolio(self, portfolio_id: str, selected_date: str):
+        """
+        Fetch the active portfolio list and then inside it fetch the data relevant to the people tab of it.
+        """
+
+        # Need to check if actual portfolio is present
+        if portfolio_id is None or portfolio_id == "":
+            raise BadRequestError("Portfolio ID is required")
+
+        if selected_date is None or selected_date == "":
+            raise BadRequestError("Selected date is required")
+
+        try:
+            # confirm the portfolio entity actually exists before doing any other work
+            portfolio_entities = await self.opengin_service.get_entities(
+                entity=Entity(id=portfolio_id)
+            )
+            if not portfolio_entities:
+                raise NotFoundError("Portfolio not found for the given ID")
+
+            # resolve the president active on this date (used as fallback minister
+            # when no one is appointed to the portfolio)
+            president_relation_lookup = Relation(
+                name=RelationNameEnum.AS_PRESIDENT.value,
+                activeAt=Util.normalize_timestamp(selected_date),
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
+            president_relations = await self.opengin_service.fetch_relation(
+                entityId=EntityIdEnum.GOVERNMENT.value,
+                relation=president_relation_lookup,
+            )
+
+            # data integrity check - there should never be more than one active
+            # president for a given date
+            if president_relations and len(president_relations) > 1:
+                raise InternalServerError(
+                    f"Multiple active presidents found for date {selected_date}"
+                )
+
+            president_id = (
+                president_relations[0].relatedEntityId if president_relations else None
+            )
+
+            relation = Relation(
+                name=RelationNameEnum.AS_APPOINTED.value,
+                activeAt=Util.normalize_timestamp(selected_date),
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
+            appointed_ministers = await self.opengin_service.fetch_relation(
+                entityId=portfolio_id, relation=relation
+            )
+
+            if appointed_ministers:
+                person_tasks = [
+                    self.enrich_person_data(
+                        person_relation=person,
+                        president_id=president_id,
+                        selected_date=selected_date,
+                    )
+                    for person in appointed_ministers
+                ]
+            else:
+                # no minister appointed then the president stands in, mirrors enrich_portfolio_item
+                if president_id is None:
+                    raise NotFoundError(
+                        f"No minister appointed and no active president found for date {selected_date}"
+                    )
+
+                person_tasks = [
+                    self.enrich_person_data(
+                        president_id=president_id,
+                        is_president=True,
+                        selected_date=selected_date,
+                    )
+                ]
+
+            results = await asyncio.gather(*person_tasks, return_exceptions=True)
+
+            person_list = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(
+                        f"Error enriching person for portfolio {portfolio_id}: {result}",
+                        exc_info=result,
+                    )
+                else:
+                    person_list.append(result)
+
+            # isPresident is derived from the already-resolved president_id,
+            # no extra relation lookups needed
+            for person in person_list:
+                person["isPresident"] = person["id"] == president_id
+
+            if results and not person_list:
+                raise InternalServerError("Failed to process persons for portfolio")
+
+            new_count = sum(1 for p in person_list if p.get("isNew"))
+
+            return {
+                "totalCount": len(person_list),
+                "newCount": new_count,
+                "personList": person_list,
+            }
+
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
@@ -1142,6 +1248,199 @@ class OrganisationService:
                 exc_info=True,
             )
             raise InternalServerError("An unexpected error occurred") from e
+
+        
+     async def enrich_body_item(self, body_relation: Relation, selected_date: str):
+
+        body_id = body_relation.relatedEntityId
+
+        if not body_id:
+            raise ValueError(
+                f"enrich_body_item: relation has no relatedEntityId — relation={body_relation!r}"
+            )
+
+        try:
+            entity = Entity(id=body_id)
+            body_data = await self.opengin_service.get_entities(entity=entity)
+        except (NotFoundError, BadRequestError):
+            raise
+        except Exception as e:
+            logger.error(
+                f"enrich_body_item: failed to fetch entity id={body_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"enrich_body_item: failed to fetch entity id={body_id!r}"
+            ) from e
+
+        if not body_data:
+            logger.error(
+                f"enrich_body_item: no entity data returned for id={body_id!r}"
+            )
+            raise NotFoundError(
+                f"enrich_body_item: no entity data returned for id={body_id!r}"
+            )
+
+        first_body = body_data[0]
+
+        try:
+            name = Util.decode_protobuf_attribute_name(first_body.name)
+        except Exception as e:
+            logger.error(
+                f"enrich_body_item: failed to decode name for id={body_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"enrich_body_item: failed to decode name for id={body_id!r}"
+            ) from e
+
+        minor_kind = first_body.kind.minor
+        body_start_date = Util.normalize_timestamp(body_relation.startTime)
+        is_new = body_start_date == selected_date
+
+        return {
+            "id": body_id,
+            "name": name,
+            "isNew": is_new,
+            "type": minor_kind,
+        }
+
+    # API: Bodies by departments
+    async def bodies_by_department(self, department_id: str, selected_date: str):
+        """
+        Docstring for bodies_by_department
+
+        :param department_id: Department Id
+        :param selected_date: Selected Date
+
+        output type:
+        {
+            "totalBodies": 0,
+            "newBodies": 0,
+            "bodyList": [
+                {
+                "name": "",
+                "id": "",
+                "isNew": false,
+                "type": "",
+                },
+            ]
+        }
+        """
+
+        if not department_id or not department_id.strip():
+            raise BadRequestError("Department ID is required")
+
+        if not selected_date or not selected_date.strip():
+            raise BadRequestError("Selected date is required")
+
+        normalized_date = Util.normalize_timestamp(selected_date)
+
+        try:
+            department_entity = await self.opengin_service.get_entities(
+                entity=Entity(id=department_id)
+            )
+        except (BadRequestError, NotFoundError):
+            raise
+        except Exception as e:
+            logger.error(
+                f"bodies_by_department: failed to fetch department entity id={department_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch department entity id={department_id!r}"
+            ) from e
+
+        if not department_entity:
+            logger.error(
+                f"bodies_by_department: department not found for id={department_id!r}"
+            )
+            raise NotFoundError(
+                f"bodies_by_department: department not found for id={department_id!r}"
+            )
+
+        relation = Relation(
+            name=RelationNameEnum.AS_BODY.value,
+            activeAt=normalized_date,
+            direction=RelationDirectionEnum.OUTGOING.value,
+        )
+
+        try:
+            body_relation_list = await self.opengin_service.fetch_relation(
+                entityId=department_id, relation=relation
+            )
+        except (BadRequestError, NotFoundError):
+            raise
+        except Exception as e:
+            logger.error(
+                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}"
+            ) from e
+            raise
+        except Exception as e:
+            logger.error(
+                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}: {e}"
+            )
+            raise InternalServerError(
+                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}"
+            )
+
+        if not body_relation_list:
+            logger.error(
+                f"bodies_by_department: no relations found for department_id={department_id!r}"
+            )
+            return {
+                "totalBodies": 0,
+                "newBodies": 0,
+                "bodyList": [],
+            }
+
+        enrich_body_tasks = [
+            self.enrich_body_item(
+                body_relation=body_relation, selected_date=normalized_date
+            )
+            for body_relation in body_relation_list
+        ]
+
+        results = await asyncio.gather(*enrich_body_tasks, return_exceptions=True)
+
+        failures = []
+        bodies = []
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                related_id = body_relation_list[i].relatedEntityId
+                logger.error(
+                    f"bodies_by_department: enrich_body_item FAILED for relatedEntityId={related_id!r}: {r!r}"
+                )
+                failures.append({"relatedEntityId": related_id, "error": str(r)})
+            else:
+                bodies.append(r)
+
+        if failures and not bodies:
+            # every single enrichment failed — this is a real error, not "zero bodies"
+            logger.error(
+                f"bodies_by_department: all body enrichments failed for department_id={department_id!r}"
+            )
+
+            raise InternalServerError(
+                f"bodies_by_department: all body enrichments failed for department_id={department_id!r}: {failures}"
+            )
+
+        if failures:
+            logger.warning(
+                f"bodies_by_department: {len(failures)} of {len(results)} enrichments failed "
+                f"for department_id={department_id!r}: {failures}"
+            )
+
+        new_bodies = sum(1 for d in bodies if d.get("isNew"))
+
+        final_result = {
+            "totalBodies": len(bodies),
+            "newBodies": new_bodies,
+            "bodyList": bodies,
+        }
+
+        return final_result
+
 
     # API: fetch presidents with terms and gazettes sorted by date
     async def fetch_presidents(self):
