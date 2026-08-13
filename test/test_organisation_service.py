@@ -1933,3 +1933,19 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
     mock_enrich_body.assert_called_once_with(
         body_relation=body_relation, selected_date=normalized_date
     )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_whitespace_department_id(organisation_service):
+    with pytest.raises(BadRequestError):
+        await organisation_service.bodies_by_department(
+            department_id="   ", selected_date="2023-10-27"
+        )
+
+
+@pytest.mark.asyncio
+async def test_bodies_by_department_whitespace_selected_date(organisation_service):
+    with pytest.raises(BadRequestError):
+        await organisation_service.bodies_by_department(
+            department_id="department_123", selected_date="   "
+        )
