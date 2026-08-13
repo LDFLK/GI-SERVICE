@@ -1055,12 +1055,6 @@ class OrganisationService:
             logger.error(
                 f"enrich_body_item: no entity data returned for id={body_id!r}"
             )
-
-        if not body_data:
-            logger.info(f"enrich_body_item: no entity data returned for id={body_id!r}")
-            logger.error(
-                f"enrich_body_item: no entity data returned for id={body_id!r}"
-            )
             raise NotFoundError(
                 f"enrich_body_item: no entity data returned for id={body_id!r}"
             )
@@ -1111,10 +1105,10 @@ class OrganisationService:
         }
         """
 
-        if not department_id:
+        if not department_id or not department_id.strip():
             raise BadRequestError("Department ID is required")
 
-        if not selected_date:
+        if not selected_date or not selected_date.strip():
             raise BadRequestError("Selected date is required")
 
         normalized_date = Util.normalize_timestamp(selected_date)
@@ -1206,9 +1200,6 @@ class OrganisationService:
                 f"bodies_by_department: all body enrichments failed for department_id={department_id!r}"
             )
 
-            logger.error(
-                f"bodies_by_department: all body enrichments failed for department_id={department_id!r}"
-            )
             raise InternalServerError(
                 f"bodies_by_department: all body enrichments failed for department_id={department_id!r}: {failures}"
             )
