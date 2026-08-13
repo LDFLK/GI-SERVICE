@@ -1118,25 +1118,10 @@ class OrganisationService:
                 else:
                     person_list.append(result)
 
-            # for each person, check if they have an incoming AS_PRESIDENT
-            # relation from the government node, active at selected_date
+            # isPresident is derived from the already-resolved president_id,
+            # no extra relation lookups needed
             for person in person_list:
-                try:
-                    president_relation = Relation(
-                        name=RelationNameEnum.AS_PRESIDENT.value,
-                        activeAt=Util.normalize_timestamp(selected_date),
-                        direction=RelationDirectionEnum.INCOMING.value,
-                    )
-                    president_check = await self.opengin_service.fetch_relation(
-                        entityId=person["id"], relation=president_relation
-                    )
-                    person["isPresident"] = bool(president_check)
-                except Exception as e:
-                    logger.error(
-                        f"Error checking president relation for {person.get('id')}: {e}",
-                        exc_info=True,
-                    )
-                    person["isPresident"] = False
+                person["isPresident"] = person["id"] == president_id
 
             if results and not person_list:
                 raise InternalServerError("Failed to process persons for portfolio")
@@ -1156,8 +1141,8 @@ class OrganisationService:
                 f"Error fetching persons for portfolio {portfolio_id}: {e}",
                 exc_info=True,
             )
-            raise InternalServerError("An unexpected error occurred")
-             
+            raise InternalServerError("An unexpected error occurred") from e
+
     # API: fetch presidents with terms and gazettes sorted by date
     async def fetch_presidents(self):
         """
