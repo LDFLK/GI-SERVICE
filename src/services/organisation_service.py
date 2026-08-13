@@ -1143,7 +1143,7 @@ class OrganisationService:
             )
             raise InternalServerError("An unexpected error occurred") from e
 
-        
+    # helper: enrich body
     async def enrich_body_item(self, body_relation: Relation, selected_date: str):
 
         body_id = body_relation.relatedEntityId
@@ -1334,7 +1334,6 @@ class OrganisationService:
         }
 
         return final_result
-
 
     # API: fetch presidents with terms and gazettes sorted by date
     async def fetch_presidents(self):

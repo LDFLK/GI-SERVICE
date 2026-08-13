@@ -946,12 +946,12 @@ components:
         totalCount:
           type: integer
           minimum: 0
-          description: "Total number of persons — powers 'Total People' in Key Highlights"
+          description: "Total number of People' in Portfolio"
           example: 1
         newCount:
           type: integer
           minimum: 0
-          description: "Count of persons where is_new is true — powers 'New People' in Key Highlights"
+          description: "Count of persons where is_new is true"
           example: 0
         personList:
           type: array
