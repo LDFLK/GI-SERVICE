@@ -93,6 +93,22 @@ async def department_history_timeline(
     return service_response
 
 
+@router.post(
+    "/department/{department_id}/bodies",
+    summary="Get active bodies for a department.",
+    description="Returns a list of bodies under a given department and a given date.",
+)
+async def bodies_by_department(
+    department_id: str = Path(..., description="ID of the department"),
+    body: Date = Body(...),
+    service: OrganisationService = Depends(get_organisation_service),
+):
+    service_response = await service.bodies_by_department(
+        department_id=department_id, selected_date=body.date
+    )
+    return service_response
+
+
 @router.get(
     "/presidents",
     summary="Get all presidents with their term dates and gazettes sorted by date.",

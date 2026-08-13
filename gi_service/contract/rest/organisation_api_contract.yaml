@@ -711,6 +711,80 @@ paths:
           description: Not found
         "500":
           description: Server Error
+  
+  /v1/department/{department_id}/bodies:
+    post:
+      tags:
+        - Organization
+      summary: Get active bodies for a department.
+      description: Returns a list of bodies under a given department and a date.
+      operationId: getBodiesByDepartment
+      parameters:
+        - name: department_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: This request body corresponds to the date used to retrieve the list of active bodies.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Date"
+      responses:
+        "200":
+          description: Successfully returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  body:
+                    type: object
+                    properties:
+                        totalBodies:
+                          type: integer
+                        newBodies:
+                          type: integer
+                        bodyList:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                             - name
+                             - id
+                             - isNew
+                             - type
+                            properties:
+                              name:
+                                type: string
+                              id:
+                                type: string
+                              isNew:
+                                type: boolean
+                              type:
+                                type: string
+
+              example:
+                body:
+                  totalBodies: 2
+                  newBodies: 2
+                  bodyList:
+                    - name: CBSL Governing Board
+                      id: cbsl_governing_board
+                      isNew: false
+                      type: board
+                    - name: CBSL Monetary Policy Council
+                      id: cbsl_monetary_policy_council
+                      isNew: false
+                      type: council
+        "400":
+          description: Bad request
+        "404":
+          description: Not found
+        "500":
+          description: Server Error
 
   /v1/persons-by-portfolio/{portfolioId}:
     post:
