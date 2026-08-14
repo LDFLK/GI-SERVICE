@@ -98,7 +98,7 @@ async def department_history_timeline(
     summary="Get persons assigned to a portfolio on a given date.",
     description="Returns the enriched list of persons appointed to a given portfolio as of a specific date, along with precomputed summary counts and president/new-appointment flags.",
 )
-async def get_portfolio_persons(
+async def get_portfolio_person(
     portfolio_id: str = Path(..., description="ID of the portfolio"),
     body: Date = Body(...),
     service: OrganisationService = Depends(get_organisation_service),
