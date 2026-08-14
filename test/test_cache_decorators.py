@@ -1,11 +1,11 @@
-"""Read-through decorators: cache hits skip the wrapped fetch."""
+"""Cache method decorators: cache hits skip the wrapped fetch."""
 
 from unittest.mock import AsyncMock
 
 import pytest
 from pydantic import BaseModel
 
-from src.cache import InMemoryCache, SingleFlight, read_through_list, read_through_value
+from src.cache import InMemoryCache, SingleFlight, cache_list, cache_value
 from src.exception import NotFoundError
 
 
@@ -20,17 +20,17 @@ class DummyService:
         self.fetch_list = AsyncMock(return_value=[Item(id="1")])
         self.fetch_value = AsyncMock(return_value={"ok": True})
 
-    @read_through_list(key_builder=lambda _self, item_id: f"list:{item_id}", model=Item)
+    @cache_list(key_builder=lambda _self, item_id: f"list:{item_id}", model=Item)
     async def get_items(self, item_id: str) -> list[Item]:
         return await self.fetch_list(item_id)
 
-    @read_through_value(key_builder=lambda _self, item_id: f"val:{item_id}")
+    @cache_value(key_builder=lambda _self, item_id: f"val:{item_id}")
     async def get_payload(self, item_id: str) -> dict:
         return await self.fetch_value(item_id)
 
 
 @pytest.mark.asyncio
-async def test_read_through_list_second_call_is_cache_hit():
+async def test_cache_list_second_call_is_cache_hit():
     service = DummyService(InMemoryCache(), SingleFlight())
 
     first = await service.get_items("a")
@@ -41,7 +41,7 @@ async def test_read_through_list_second_call_is_cache_hit():
 
 
 @pytest.mark.asyncio
-async def test_read_through_list_does_not_cache_errors():
+async def test_cache_list_does_not_cache_errors():
     service = DummyService(InMemoryCache(), SingleFlight())
     service.fetch_list = AsyncMock(side_effect=NotFoundError("missing"))
 
@@ -55,7 +55,7 @@ async def test_read_through_list_does_not_cache_errors():
 
 
 @pytest.mark.asyncio
-async def test_read_through_value_second_call_is_cache_hit():
+async def test_cache_value_second_call_is_cache_hit():
     service = DummyService(InMemoryCache(), SingleFlight())
 
     first = await service.get_payload("a")

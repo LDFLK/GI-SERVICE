@@ -6,7 +6,7 @@ from src.cache import (
     SingleFlight,
     cache as app_cache,
     entities_query_key,
-    read_through_list,
+    cache_list,
     relation_key,
     singleflight as app_singleflight,
 )
@@ -80,7 +80,7 @@ class OpenGINService:
     def session(self) -> ClientSession:
         return http_client.session
 
-    @read_through_list(key_builder=_entities_cache_key, model=Entity)
+    @cache_list(key_builder=_entities_cache_key, model=Entity)
     @api_retry_decorator
     async def get_entities(self, entity: Entity):
         """Search OpenGIN entities. Cached; retries apply on cache miss only."""
@@ -124,7 +124,7 @@ class OpenGINService:
             logger.error(f"Read API Error: {str(e)}")
             raise InternalServerError("An unexpected error occurred") from e
 
-    @read_through_list(key_builder=_relation_cache_key, model=Relation)
+    @cache_list(key_builder=_relation_cache_key, model=Relation)
     @api_retry_decorator
     async def fetch_relation(self, entityId: str, relation: Relation):
         """Fetch OpenGIN relations. Cached; retries apply on cache miss only."""

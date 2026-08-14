@@ -1,7 +1,7 @@
-"""Read-through cache decorators for OpenGIN service methods.
+"""Method decorators that cache OpenGIN fetch results via SingleFlight + Redis.
 
-``@read_through_list`` / ``@read_through_value`` must wrap the retry decorator
-(outer cache, inner retry) so cache hits skip HTTP and retries apply only on miss.
+``@cache_list`` / ``@cache_value`` must wrap the retry decorator (outer cache,
+inner retry) so cache hits skip HTTP and retries apply only on cache miss.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ TValue = TypeVar("TValue")
 KeyBuilder = Callable[..., str]
 
 
-def read_through_list(
+def cache_list(
     *,
     key_builder: KeyBuilder,
     model: type[TModel],
@@ -56,7 +56,7 @@ def read_through_list(
     return decorator
 
 
-def read_through_value(
+def cache_value(
     *,
     key_builder: KeyBuilder,
 ) -> Callable[[Callable[..., Awaitable[TValue]]], Callable[..., Awaitable[TValue]]]:
