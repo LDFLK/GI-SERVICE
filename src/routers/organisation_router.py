@@ -94,7 +94,7 @@ async def department_history_timeline(
 
 
 @router.post(
-    "/portfolio/{portfolio_id}/persons",
+    "/portfolio/{portfolio_id}/person",
     summary="Get persons assigned to a portfolio on a given date.",
     description="Returns the enriched list of persons appointed to a given portfolio as of a specific date, along with precomputed summary counts and president/new-appointment flags.",
 )

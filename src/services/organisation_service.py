@@ -1050,16 +1050,24 @@ class OrganisationService:
             if not portfolio_entities:
                 raise NotFoundError("Portfolio not found for the given ID")
 
-            # resolve the president active on this date (used as fallback minister
-            # when no one is appointed to the portfolio)
             president_relation_lookup = Relation(
                 name=RelationNameEnum.AS_PRESIDENT.value,
                 activeAt=Util.normalize_timestamp(selected_date),
                 direction=RelationDirectionEnum.OUTGOING.value,
             )
-            president_relations = await self.opengin_service.fetch_relation(
-                entityId=EntityIdEnum.GOVERNMENT.value,
-                relation=president_relation_lookup,
+            appointed_minister_lookup = Relation(
+                name=RelationNameEnum.AS_APPOINTED.value,
+                activeAt=Util.normalize_timestamp(selected_date),
+                direction=RelationDirectionEnum.OUTGOING.value,
+            )
+            president_relations, appointed_ministers = await asyncio.gather(
+                self.opengin_service.fetch_relation(
+                    entityId=EntityIdEnum.GOVERNMENT.value,
+                    relation=president_relation_lookup,
+                ),
+                self.opengin_service.fetch_relation(
+                    entityId=portfolio_id, relation=appointed_minister_lookup
+                ),
             )
 
             # data integrity check - there should never be more than one active
@@ -1071,15 +1079,6 @@ class OrganisationService:
 
             president_id = (
                 president_relations[0].relatedEntityId if president_relations else None
-            )
-
-            relation = Relation(
-                name=RelationNameEnum.AS_APPOINTED.value,
-                activeAt=Util.normalize_timestamp(selected_date),
-                direction=RelationDirectionEnum.OUTGOING.value,
-            )
-            appointed_ministers = await self.opengin_service.fetch_relation(
-                entityId=portfolio_id, relation=relation
             )
 
             if appointed_ministers:
