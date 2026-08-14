@@ -1036,10 +1036,10 @@ class OrganisationService:
         """
 
         # Need to check if actual portfolio is present
-        if portfolio_id is None or portfolio_id == "":
+        if not portfolio_id or not portfolio_id.strip():
             raise BadRequestError("Portfolio ID is required")
 
-        if selected_date is None or selected_date == "":
+        if not selected_date or not selected_date.strip():
             raise BadRequestError("Selected date is required")
 
         try:

@@ -2407,3 +2407,27 @@ async def test_get_persons_by_portfolio_bad_request_error_not_wrapped(
         await organisation_service.get_persons_by_portfolio(
             portfolio_id=portfolio_id, selected_date=selected_date
         )
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_whitespace_only_portfolio_id_raises_bad_request(
+    organisation_service,
+):
+    """A portfolio_id consisting only of whitespace should be treated as
+    missing, matching the `not portfolio_id.strip()` validation."""
+    with pytest.raises(BadRequestError):
+        await organisation_service.get_persons_by_portfolio(
+            portfolio_id="   ", selected_date="2026-04-21"
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_whitespace_only_selected_date_raises_bad_request(
+    organisation_service,
+):
+    """A selected_date consisting only of whitespace should be treated as
+    missing, matching the `not selected_date.strip()` validation."""
+    with pytest.raises(BadRequestError):
+        await organisation_service.get_persons_by_portfolio(
+            portfolio_id="min-12", selected_date="   "
+        )
