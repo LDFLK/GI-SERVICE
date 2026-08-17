@@ -1060,7 +1060,7 @@ class OrganisationService:
                 activeAt=Util.normalize_timestamp(selected_date),
                 direction=RelationDirectionEnum.OUTGOING.value,
             )
-            president_relations, appointed_ministers = await asyncio.gather(
+            results = await asyncio.gather(
                 self.opengin_service.fetch_relation(
                     entityId=EntityIdEnum.GOVERNMENT.value,
                     relation=president_relation_lookup,
@@ -1068,6 +1068,18 @@ class OrganisationService:
                 self.opengin_service.fetch_relation(
                     entityId=portfolio_id, relation=appointed_minister_lookup
                 ),
+                return_exceptions=True,
+            )
+
+            president_relations = (
+                []
+                if isinstance(results[0], Exception) or not results[0]
+                else results[0]
+            )
+            appointed_ministers = (
+                []
+                if isinstance(results[1], Exception) or not results[1]
+                else results[1]
             )
 
             # data integrity check - there should never be more than one active
