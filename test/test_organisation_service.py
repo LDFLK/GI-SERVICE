@@ -1955,24 +1955,23 @@ async def test_bodies_by_department_whitespace_selected_date(organisation_servic
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("portfolio_id", ["", None, "   "])
-async def test_get_persons_by_portfolio_invalid_portfolio_id(
-    organisation_service, portfolio_id
+@pytest.mark.parametrize(
+    "portfolio_id, selected_date",
+    [
+        ("", "2026-04-21"),
+        (None, "2026-04-21"),
+        ("   ", "2026-04-21"),
+        ("min-12", ""),
+        ("min-12", None),
+        ("min-12", "       "),
+    ],
+)
+async def test_get_persons_by_portfolio_invalid_inputs(
+    organisation_service, portfolio_id, selected_date
 ):
     with pytest.raises(BadRequestError):
         await organisation_service.get_persons_by_portfolio(
-            portfolio_id=portfolio_id, selected_date="2026-04-21"
-        )
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("selected_date", ["", None, "   "])
-async def test_get_persons_by_portfolio_invalid_selected_date(
-    organisation_service, selected_date
-):
-    with pytest.raises(BadRequestError):
-        await organisation_service.get_persons_by_portfolio(
-            portfolio_id="min-12", selected_date=selected_date
+            portfolio_id=portfolio_id, selected_date=selected_date
         )
 
 
