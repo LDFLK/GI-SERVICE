@@ -2221,9 +2221,15 @@ async def test_get_persons_by_portfolio_no_minister_falls_back_to_president(
     selected_date = "2026-04-21"
     president_id = "pres_123"
 
-    mock_opengin_service.get_entities.return_value = [
-        Entity(id=portfolio_id, name="mocked_protobuf_name")
-    ]
+    mock_kind = MagicMock()
+    mock_kind.minor = "cabinetMinister"
+
+    mock_portfolio_entity = MagicMock(spec=Entity)
+    mock_portfolio_entity.id = portfolio_id
+    mock_portfolio_entity.name = "mocked_protobuf_name"
+    mock_portfolio_entity.kind = mock_kind
+
+    mock_opengin_service.get_entities.return_value = [mock_portfolio_entity]
 
     async def fetch_relation_handler(entityId, relation):
         if (

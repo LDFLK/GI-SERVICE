@@ -1117,13 +1117,17 @@ class OrganisationService:
                         f"No minister appointed and no active president found for date {selected_date}"
                     )
 
-                person_tasks = [] if portfolio_data.kind.minor != KindMinorEnum.CABINET_MINISTER.value else [
-                    self.enrich_person_data(
-                        president_id=president_id,
-                        is_president=True,
-                        selected_date=selected_date,
-                    )
-                ]
+                person_tasks = (
+                    []
+                    if portfolio_data.kind.minor != KindMinorEnum.CABINET_MINISTER.value
+                    else [
+                        self.enrich_person_data(
+                            president_id=president_id,
+                            is_president=True,
+                            selected_date=selected_date,
+                        )
+                    ]
+                )
 
             results = await asyncio.gather(*person_tasks, return_exceptions=True)
 
