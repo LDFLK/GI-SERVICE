@@ -1050,6 +1050,14 @@ class OrganisationService:
             if not portfolio_entities:
                 raise NotFoundError("Portfolio not found for the given ID")
 
+            portfolio_data = portfolio_entities[0]
+
+            if not isinstance(portfolio_data, Entity):
+                logger.error(
+                    f"Error fetching portfolio entity for id {portfolio_id}: {portfolio_data}"
+                )
+                raise InternalServerError("Failed to fetch portfolio details")
+
             president_relation_lookup = Relation(
                 name=RelationNameEnum.AS_PRESIDENT.value,
                 activeAt=Util.normalize_timestamp(selected_date),
@@ -1109,7 +1117,7 @@ class OrganisationService:
                         f"No minister appointed and no active president found for date {selected_date}"
                     )
 
-                person_tasks = [
+                person_tasks = [] if portfolio_data.kind.minor != KindMinorEnum.CABINET_MINISTER.value else [
                     self.enrich_person_data(
                         president_id=president_id,
                         is_president=True,
