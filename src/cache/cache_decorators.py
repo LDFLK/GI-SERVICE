@@ -1,7 +1,7 @@
-"""Method decorators that cache OpenGIN fetch results via SingleFlight + Redis.
+"""Method decorator that caches OpenGIN fetch results via SingleFlight + Redis.
 
-``@cache_list`` / ``@cache_value`` must wrap the retry decorator (outer cache,
-inner retry) so cache hits skip HTTP and retries apply only on cache miss.
+``@cached`` must wrap the retry decorator (outer cache, inner retry) so cache
+hits skip HTTP and retries apply only on cache miss.
 """
 
 from __future__ import annotations
@@ -11,72 +11,40 @@ from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any, TypeVar
 
-from pydantic import BaseModel
+from pydantic import TypeAdapter
 
 from src.cache.ttl import apply_jitter
 from src.core import settings
 
 logger = logging.getLogger(__name__)
 
-TModel = TypeVar("TModel", bound=BaseModel)
-TValue = TypeVar("TValue")
+T = TypeVar("T")
 KeyBuilder = Callable[..., str]
 
 
-def cache_list(
+def cached(
     *,
     key_builder: KeyBuilder,
-    model: type[TModel],
-) -> Callable[
-    [Callable[..., Awaitable[list[TModel]]]],
-    Callable[..., Awaitable[list[TModel]]],
-]:
-    """Cache a method that returns ``list[model]``. Redis stores JSON dicts."""
+    return_type: type[T],
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
+    """Cache a method that returns any JSON-serializable or Pydantic type."""
+    adapter = TypeAdapter(return_type)
 
-    def decorator(
-        fn: Callable[..., Awaitable[list[TModel]]],
-    ) -> Callable[..., Awaitable[list[TModel]]]:
+    def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(fn)
-        async def wrapper(self, *args: Any, **kwargs: Any) -> list[TModel]:
+        async def wrapper(self, *args: Any, **kwargs: Any) -> T:
             key = key_builder(self, *args, **kwargs)
             ttl = apply_jitter(settings.CACHE_TTL_SECONDS)
             logger.debug("%s key=%s", fn.__name__, key)
 
-            async def fetch() -> list[dict[str, Any]]:
-                models = await fn(self, *args, **kwargs)
-                return [item.model_dump(mode="json") for item in models]
+            async def fetch() -> Any:
+                result = await fn(self, *args, **kwargs)
+                return adapter.dump_python(result, mode="json")
 
             raw = await self._sf.get_or_fetch(
                 key, cache=self._cache, fetch=fetch, ttl_seconds=ttl
             )
-            return [model.model_validate(item) for item in raw]
-
-        return wrapper
-
-    return decorator
-
-
-def cache_value(
-    *,
-    key_builder: KeyBuilder,
-) -> Callable[[Callable[..., Awaitable[TValue]]], Callable[..., Awaitable[TValue]]]:
-    """Cache a method that already returns JSON-serializable data."""
-
-    def decorator(
-        fn: Callable[..., Awaitable[TValue]],
-    ) -> Callable[..., Awaitable[TValue]]:
-        @wraps(fn)
-        async def wrapper(self, *args: Any, **kwargs: Any) -> TValue:
-            key = key_builder(self, *args, **kwargs)
-            ttl = apply_jitter(settings.CACHE_TTL_SECONDS)
-            logger.debug("%s key=%s", fn.__name__, key)
-
-            async def fetch() -> TValue:
-                return await fn(self, *args, **kwargs)
-
-            return await self._sf.get_or_fetch(
-                key, cache=self._cache, fetch=fetch, ttl_seconds=ttl
-            )
+            return adapter.validate_python(raw)
 
         return wrapper
 

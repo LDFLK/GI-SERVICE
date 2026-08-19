@@ -20,7 +20,7 @@ from src.cache.keys import (
 from src.cache.ttl import (
     apply_jitter,
 )
-from src.cache.cache_decorators import cache_list, cache_value
+from src.cache.cache_decorators import cached
 from src.cache.singleflight import SingleFlight
 
 __all__ = [
@@ -41,6 +41,5 @@ __all__ = [
     "attributes_key",
     "metadata_key",
     "apply_jitter",
-    "cache_list",
-    "cache_value",
+    "cached",
 ]
