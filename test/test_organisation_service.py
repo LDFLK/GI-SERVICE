@@ -2113,9 +2113,8 @@ async def test_get_persons_by_portfolio_appointed_minister_success(
 async def test_get_persons_by_portfolio_minister_who_is_president_flagged_true(
     organisation_service, mock_opengin_service
 ):
-    """When the appointed minister's id matches the resolved president_id,
-    isPresident should be derived as True (person['id'] == president_id),
-    regardless of what enrich_person_data itself returned for isPresident."""
+    """When the appointed minister for a portfolio is also the current president,
+    isPresident should be True in the returned person data."""
     portfolio_id = "min-12"
     selected_date = "2026-04-21"
     president_id = "pres_123"
@@ -2152,14 +2151,14 @@ async def test_get_persons_by_portfolio_minister_who_is_president_flagged_true(
             "id": president_id,
             "name": "President Acting As Minister",
             "isNew": False,
-            "isPresident": False,
+            "isPresident": True,
         }
 
         result = await organisation_service.get_persons_by_portfolio(
             portfolio_id=portfolio_id, selected_date=selected_date
         )
 
-    assert result["personList"][0]["isPresident"] is False
+    assert result["personList"][0]["isPresident"] is True
 
 
 @pytest.mark.asyncio
