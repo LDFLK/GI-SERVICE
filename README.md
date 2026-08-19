@@ -154,24 +154,28 @@ flowchart LR
 
 ### Method 2 (Docker)
 
-Docker Compose starts **both** GI-SERVICE and Redis. Redis is enabled automatically with `CACHE_ENABLED=true` and `REDIS_URL=redis://redis:6379/0`.
+Docker Compose can run **with or without** Redis. Use the Makefile shortcuts:
 
    ```bash
    # Make sure Docker daemon is running
 
-   # Start containers
-   docker compose up
+   # App only — cache off (uses CACHE_ENABLED from .env, default false)
+   make up
 
-   # Build and start containers
-   docker compose up --build
+   # App + Redis — cache on
+   make up-cache
+
+   # Rebuild image after Dockerfile / requirements.txt changes
+   make up-build
+   make up-cache-build
    ```
 
-This brings up:
+| Command        | GI-SERVICE            | Redis                 | Cache   |
+|----------------|-----------------------|-----------------------|---------|
+| `make up`      | http://localhost:8000 | not started           | off     |
+| `make up-cache`| http://localhost:8000 | localhost:6379        | on      |
 
-| Service    | URL / Port            |
-|------------|-----------------------|
-| GI-SERVICE | http://localhost:8000 |
-| Redis      | localhost:6379        |
+Run tests in Docker: `make test`
 
 ## API Documentation
 
