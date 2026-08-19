@@ -1949,3 +1949,465 @@ async def test_bodies_by_department_whitespace_selected_date(organisation_servic
         await organisation_service.bodies_by_department(
             department_id="department_123", selected_date="   "
         )
+
+
+# --- Tests for get_persons_by_portfolio ---
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "portfolio_id, selected_date",
+    [
+        ("", "2026-04-21"),
+        (None, "2026-04-21"),
+        ("   ", "2026-04-21"),
+        ("min-12", ""),
+        ("min-12", None),
+        ("min-12", "       "),
+    ],
+)
+async def test_get_persons_by_portfolio_invalid_inputs(
+    organisation_service, portfolio_id, selected_date
+):
+    with pytest.raises(BadRequestError):
+        await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_not_found(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+
+    mock_opengin_service.get_entities.return_value = []
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+    # should fail before ever querying for president or ministers
+    mock_opengin_service.fetch_relation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_multiple_presidents_raises_internal_server_error(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=portfolio_id, name="mocked_protobuf_name")
+    ]
+
+    async def fetch_relation_handler(entityId, relation):
+        if (
+            entityId == EntityIdEnum.GOVERNMENT.value
+            and relation.name == RelationNameEnum.AS_PRESIDENT.value
+        ):
+            return [
+                Relation(relatedEntityId="pres_1"),
+                Relation(relatedEntityId="pres_2"),
+            ]
+        return []
+
+    mock_opengin_service.fetch_relation.side_effect = fetch_relation_handler
+
+    with pytest.raises(InternalServerError):
+        await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_no_minister_no_president_raises_not_found(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=portfolio_id, name="mocked_protobuf_name")
+    ]
+    # no president relation, no appointed minister relation
+    mock_opengin_service.fetch_relation.return_value = []
+
+    with pytest.raises(NotFoundError):
+        await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_appointed_minister_success(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+    president_id = "pres_123"
+    minister_relation = Relation(
+        relatedEntityId="cit_minister_1",
+        startTime="2020-01-01T00:00:00Z",
+        endTime="2030-01-01T00:00:00Z",
+    )
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=portfolio_id, name="mocked_protobuf_name")
+    ]
+
+    async def fetch_relation_handler(entityId, relation):
+        if (
+            entityId == EntityIdEnum.GOVERNMENT.value
+            and relation.name == RelationNameEnum.AS_PRESIDENT.value
+        ):
+            return [Relation(relatedEntityId=president_id)]
+        if (
+            entityId == portfolio_id
+            and relation.name == RelationNameEnum.AS_APPOINTED.value
+        ):
+            return [minister_relation]
+        return []
+
+    mock_opengin_service.fetch_relation.side_effect = fetch_relation_handler
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_person_data",
+        new_callable=AsyncMock,
+    ) as mock_enrich_person:
+        mock_enrich_person.return_value = {
+            "id": "cit_minister_1",
+            "name": "Test Minister",
+            "isNew": False,
+            "isPresident": False,
+        }
+
+        result = await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+    assert result == {
+        "totalCount": 1,
+        "newCount": 0,
+        "personList": [
+            {
+                "id": "cit_minister_1",
+                "name": "Test Minister",
+                "isNew": False,
+                "isPresident": False,
+            }
+        ],
+    }
+
+    mock_enrich_person.assert_called_once_with(
+        person_relation=minister_relation,
+        president_id=president_id,
+        selected_date=selected_date,
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_minister_who_is_president_flagged_true(
+    organisation_service, mock_opengin_service
+):
+    """When the appointed minister for a portfolio is also the current president,
+    isPresident should be True in the returned person data."""
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+    president_id = "pres_123"
+    minister_relation = Relation(
+        relatedEntityId=president_id,
+        startTime="2020-01-01T00:00:00Z",
+        endTime="2030-01-01T00:00:00Z",
+    )
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=portfolio_id, name="mocked_protobuf_name")
+    ]
+
+    async def fetch_relation_handler(entityId, relation):
+        if (
+            entityId == EntityIdEnum.GOVERNMENT.value
+            and relation.name == RelationNameEnum.AS_PRESIDENT.value
+        ):
+            return [Relation(relatedEntityId=president_id)]
+        if (
+            entityId == portfolio_id
+            and relation.name == RelationNameEnum.AS_APPOINTED.value
+        ):
+            return [minister_relation]
+        return []
+
+    mock_opengin_service.fetch_relation.side_effect = fetch_relation_handler
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_person_data",
+        new_callable=AsyncMock,
+    ) as mock_enrich_person:
+        mock_enrich_person.return_value = {
+            "id": president_id,
+            "name": "President Acting As Minister",
+            "isNew": False,
+            "isPresident": True,
+        }
+
+        result = await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+    assert result["personList"][0]["isPresident"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_new_minister_counted(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+    president_id = "pres_123"
+    minister_relation = Relation(
+        relatedEntityId="cit_minister_1",
+        startTime=Util.normalize_timestamp(selected_date),
+        endTime="2030-01-01T00:00:00Z",
+    )
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=portfolio_id, name="mocked_protobuf_name")
+    ]
+
+    async def fetch_relation_handler(entityId, relation):
+        if (
+            entityId == EntityIdEnum.GOVERNMENT.value
+            and relation.name == RelationNameEnum.AS_PRESIDENT.value
+        ):
+            return [Relation(relatedEntityId=president_id)]
+        if (
+            entityId == portfolio_id
+            and relation.name == RelationNameEnum.AS_APPOINTED.value
+        ):
+            return [minister_relation]
+        return []
+
+    mock_opengin_service.fetch_relation.side_effect = fetch_relation_handler
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_person_data",
+        new_callable=AsyncMock,
+    ) as mock_enrich_person:
+        mock_enrich_person.return_value = {
+            "id": "cit_minister_1",
+            "name": "New Minister",
+            "isNew": True,
+            "isPresident": False,
+        }
+
+        result = await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+    assert result["newCount"] == 1
+    assert result["totalCount"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_no_minister_falls_back_to_president(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+    president_id = "pres_123"
+
+    mock_kind = MagicMock()
+    mock_kind.minor = "cabinetMinister"
+
+    mock_portfolio_entity = MagicMock(spec=Entity)
+    mock_portfolio_entity.id = portfolio_id
+    mock_portfolio_entity.name = "mocked_protobuf_name"
+    mock_portfolio_entity.kind = mock_kind
+
+    mock_opengin_service.get_entities.return_value = [mock_portfolio_entity]
+
+    async def fetch_relation_handler(entityId, relation):
+        if (
+            entityId == EntityIdEnum.GOVERNMENT.value
+            and relation.name == RelationNameEnum.AS_PRESIDENT.value
+        ):
+            return [Relation(relatedEntityId=president_id)]
+        if (
+            entityId == portfolio_id
+            and relation.name == RelationNameEnum.AS_APPOINTED.value
+        ):
+            return []  # no minister appointed
+        return []
+
+    mock_opengin_service.fetch_relation.side_effect = fetch_relation_handler
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_person_data",
+        new_callable=AsyncMock,
+    ) as mock_enrich_person:
+        mock_enrich_person.return_value = {
+            "id": president_id,
+            "name": "The President",
+            "isNew": False,
+            "isPresident": True,
+        }
+
+        result = await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+    assert result["totalCount"] == 1
+    assert result["personList"][0]["id"] == president_id
+    assert result["personList"][0]["isPresident"] is True
+
+    mock_enrich_person.assert_called_once_with(
+        president_id=president_id,
+        is_president=True,
+        selected_date=selected_date,
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_partial_enrichment_failure_is_skipped(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+    president_id = "pres_123"
+
+    minister_ok = Relation(
+        relatedEntityId="cit_ok",
+        startTime="2020-01-01T00:00:00Z",
+        endTime="2030-01-01T00:00:00Z",
+    )
+    minister_fail = Relation(
+        relatedEntityId="cit_fail",
+        startTime="2020-01-01T00:00:00Z",
+        endTime="2030-01-01T00:00:00Z",
+    )
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=portfolio_id, name="mocked_protobuf_name")
+    ]
+
+    async def fetch_relation_handler(entityId, relation):
+        if (
+            entityId == EntityIdEnum.GOVERNMENT.value
+            and relation.name == RelationNameEnum.AS_PRESIDENT.value
+        ):
+            return [Relation(relatedEntityId=president_id)]
+        if (
+            entityId == portfolio_id
+            and relation.name == RelationNameEnum.AS_APPOINTED.value
+        ):
+            return [minister_ok, minister_fail]
+        return []
+
+    mock_opengin_service.fetch_relation.side_effect = fetch_relation_handler
+
+    async def enrich_side_effect(
+        selected_date, person_relation=None, president_id=None, is_president=False
+    ):
+        if person_relation.relatedEntityId == "cit_fail":
+            raise InternalServerError("boom")
+        return {
+            "id": "cit_ok",
+            "name": "OK Minister",
+            "isNew": False,
+            "isPresident": False,
+        }
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_person_data",
+        new_callable=AsyncMock,
+        side_effect=enrich_side_effect,
+    ):
+        result = await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+    assert result["totalCount"] == 1
+    assert result["personList"][0]["id"] == "cit_ok"
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_all_enrichment_failures_raises_internal_server_error(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+    president_id = "pres_123"
+
+    minister_relation = Relation(
+        relatedEntityId="cit_1",
+        startTime="2020-01-01T00:00:00Z",
+        endTime="2030-01-01T00:00:00Z",
+    )
+
+    mock_opengin_service.get_entities.return_value = [
+        Entity(id=portfolio_id, name="mocked_protobuf_name")
+    ]
+
+    async def fetch_relation_handler(entityId, relation):
+        if (
+            entityId == EntityIdEnum.GOVERNMENT.value
+            and relation.name == RelationNameEnum.AS_PRESIDENT.value
+        ):
+            return [Relation(relatedEntityId=president_id)]
+        if (
+            entityId == portfolio_id
+            and relation.name == RelationNameEnum.AS_APPOINTED.value
+        ):
+            return [minister_relation]
+        return []
+
+    mock_opengin_service.fetch_relation.side_effect = fetch_relation_handler
+
+    with patch(
+        "src.services.organisation_service.OrganisationService.enrich_person_data",
+        new_callable=AsyncMock,
+        side_effect=InternalServerError("boom"),
+    ):
+        with pytest.raises(InternalServerError):
+            await organisation_service.get_persons_by_portfolio(
+                portfolio_id=portfolio_id, selected_date=selected_date
+            )
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_unexpected_exception_wrapped(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+    original_error_message = "OpenGIN service error"
+
+    mock_opengin_service.get_entities.side_effect = Exception(original_error_message)
+
+    with pytest.raises(InternalServerError) as exc_info:
+        await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
+
+    root_cause = exc_info.value.__cause__
+    assert isinstance(root_cause, Exception)
+    assert str(root_cause) == original_error_message
+
+
+@pytest.mark.asyncio
+async def test_get_persons_by_portfolio_bad_request_error_not_wrapped(
+    organisation_service, mock_opengin_service
+):
+    portfolio_id = "min-12"
+    selected_date = "2026-04-21"
+
+    mock_opengin_service.get_entities.side_effect = BadRequestError("bad id format")
+
+    with pytest.raises(BadRequestError):
+        await organisation_service.get_persons_by_portfolio(
+            portfolio_id=portfolio_id, selected_date=selected_date
+        )
