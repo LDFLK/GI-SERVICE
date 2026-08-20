@@ -20,7 +20,9 @@ class DummyService:
         self.fetch_list = AsyncMock(return_value=[Item(id="1")])
         self.fetch_value = AsyncMock(return_value={"ok": True})
 
-    @cached(key_builder=lambda _self, item_id: f"list:{item_id}", return_type=list[Item])
+    @cached(
+        key_builder=lambda _self, item_id: f"list:{item_id}", return_type=list[Item]
+    )
     async def get_items(self, item_id: str) -> list[Item]:
         return await self.fetch_list(item_id)
 
