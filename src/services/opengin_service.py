@@ -1,6 +1,15 @@
 from google.api_core import retry_async
 from aiohttp import ClientSession
 import logging
+from src.cache import (
+    CacheBackend,
+    SingleFlight,
+    cache as app_cache,
+    entities_query_key,
+    cached,
+    relation_key,
+    singleflight as app_singleflight,
+)
 from src.core import settings
 from src.exception import BadRequestError, InternalServerError, NotFoundError
 from src.models import AttributeFilterRecords, Entity, Relation
@@ -30,21 +39,51 @@ api_retry_decorator = retry_async.AsyncRetry(
 )
 
 
+def _entities_cache_key(_self, entity: Entity) -> str:
+    if not entity:
+        raise BadRequestError("Entity is required")
+    return entities_query_key(
+        entity.model_dump(mode="json"), prefix=settings.CACHE_KEY_PREFIX
+    )
+
+
+def _relation_cache_key(_self, entityId: str, relation: Relation) -> str:
+    if not entityId or not relation:
+        raise BadRequestError("Entity ID and relation is required")
+    stripped_entity_id = str(entityId).strip()
+    if not stripped_entity_id:
+        raise BadRequestError("Entity ID can not be empty")
+    return relation_key(
+        stripped_entity_id,
+        relation.model_dump(mode="json"),
+        prefix=settings.CACHE_KEY_PREFIX,
+    )
+
+
 class OpenGINService:
     """
     The OpenGINService directly interfaces with the OpenGIN APIs to retrieve data.
+
+    get_entities / fetch_relation are read-through cached (NullCache when disabled).
     """
 
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        cache: CacheBackend | None = None,
+        singleflight: SingleFlight | None = None,
+    ):
+        # Default to lifespan singletons so routers can keep doing OpenGINService()
+        self._cache = cache if cache is not None else app_cache
+        self._sf = singleflight if singleflight is not None else app_singleflight
 
     @property
     def session(self) -> ClientSession:
         return http_client.session
 
+    @cached(key_builder=_entities_cache_key, return_type=list[Entity])
     @api_retry_decorator
     async def get_entities(self, entity: Entity):
-
+        """Search OpenGIN entities. Cached; retries apply on cache miss only."""
         if not entity:
             raise BadRequestError("Entity is required")
 
@@ -85,11 +124,12 @@ class OpenGINService:
             logger.error(f"Read API Error: {str(e)}")
             raise InternalServerError("An unexpected error occurred") from e
 
+    @cached(key_builder=_relation_cache_key, return_type=list[Relation])
     @api_retry_decorator
     async def fetch_relation(self, entityId: str, relation: Relation):
-
+        """Fetch OpenGIN relations. Cached; retries apply on cache miss only."""
         if not entityId or not relation:
-            raise BadRequestError("Entity ID is required")
+            raise BadRequestError("Entity ID and relation is required")
 
         stripped_entity_id = str(entityId).strip()
         if not stripped_entity_id:
@@ -105,11 +145,11 @@ class OpenGINService:
             ) as response:
                 if response.status == 404:
                     raise NotFoundError(
-                        f"Read API Error: Relation not found for id {entityId}"
+                        f"Read API Error: Relation not found for id {stripped_entity_id}"
                     )
                 if response.status == 400:
                     raise BadRequestError(
-                        f"Read API Error: Bad request for id {entityId}"
+                        f"Read API Error: Bad request for id {stripped_entity_id}"
                     )
                 response.raise_for_status()
                 data = await response.json()

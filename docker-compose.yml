@@ -7,7 +7,9 @@ services:
     ports:
       - "8000:8000" # host:container
     env_file:
-      - .env # load environment variables
+      - .env
+    environment:
+      CACHE_ENABLED: "false"
     volumes:
       - .:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2 --timeout-keep-alive 75 --backlog 2048
@@ -17,6 +19,8 @@ services:
     container_name: gi-tests
     env_file:
       - .env
+    environment:
+      CACHE_ENABLED: "false"
     volumes:
       - .:/app
     depends_on:
