@@ -167,7 +167,7 @@ Docker Compose can run **with or without** Redis. Use the Makefile shortcuts:
 
    # Rebuild image after Dockerfile / requirements.txt changes
    make up-build
-   make up-cache-build
+   make up-build-cache
    ```
 
 | Command        | GI-SERVICE            | Redis                 | Cache   |

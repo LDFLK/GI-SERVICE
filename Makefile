@@ -18,7 +18,7 @@ up-build-cache:
 	$(COMPOSE_CACHE) up --build
 
 down:
-	$(COMPOSE) down
+	$(COMPOSE_CACHE) down
 
 test:
 	$(COMPOSE) run --rm tests
