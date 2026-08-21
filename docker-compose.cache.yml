@@ -2,7 +2,9 @@ version: "3.9"
 
 services:
   redis:
-    image: redis:7-alpine
+    build:
+      context: ./redis
+      dockerfile: Dockerfile
     container_name: gi-redis
     ports:
       - "127.0.0.1:6379:6379"
