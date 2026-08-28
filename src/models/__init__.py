@@ -9,7 +9,7 @@ from .opengin_schemas import (
     Label,
     Relation,
 )
-from .person_schemas import PersonResponse, PersonSource
+from .person_schemas import PersonResponse, PersonSource, PersonHistoryResponse
 from .search_schemas import SearchResponse, SearchResult
 from .organisation_schemas import (
     PortfolioPersonsResponse,
@@ -45,6 +45,7 @@ __all__ = [
     "Relation",
     "SearchResponse",
     "SearchResult",
+<<<<<<< HEAD
     "Person",
     "PortfolioPerson",
     "PortfolioPersonsResponse",
@@ -59,4 +60,7 @@ __all__ = [
     "DepartmentHistoryResponse",
     "PresidentsResponse",
     "CabinetFlowResponse",
+=======
+    "PersonHistoryResponse",
+>>>>>>> 6a921bb (feat: added pydantic binding validation for person history api)
 ]

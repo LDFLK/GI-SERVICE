@@ -10,6 +10,7 @@ from src.enums import (
 from src.exception import BadRequestError, InternalServerError, NotFoundError
 from src.models import Entity, PersonResponse, Relation
 from src.utils import Util, http_client
+from src.models import PersonHistoryResponse
 
 logger = logging.getLogger(__name__)
 
@@ -137,11 +138,11 @@ class PersonService:
                 item.pop("start_time", None)
                 item.pop("end_time", None)
 
-            final_result = {
-                "ministry_history": ministry_history,
-                "ministries_worked_at": len(ministry_history),
-                "worked_as_president": len(president_relations),
-            }
+            final_result = PersonHistoryResponse(
+                ministry_history=ministry_history,
+                ministries_worked_at=len(ministry_history),
+                worked_as_president=len(president_relations),
+            ).model_dump()
 
             return final_result
 
