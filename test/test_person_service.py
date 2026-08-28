@@ -158,6 +158,7 @@ async def test_fetch_person_history_sorting(person_service, mock_opengin_service
     assert result["ministries_worked_at"] == 3
     assert result["worked_as_president"] == 0
 
+
 @pytest.mark.asyncio
 async def test_fetch_person_history_no_ministries(person_service, mock_opengin_service):
     person_id = "person_123"
