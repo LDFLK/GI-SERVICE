@@ -1,6 +1,11 @@
 from fastapi.param_functions import Depends, Path
 from fastapi import APIRouter
-from src.models import DataCatalogRequest, DatasetYearsRequest,DataCatalogResponse
+from src.models import (
+    DataCatalogRequest,
+    DatasetYearsRequest,
+    DataCatalogResponse,
+    DatasetAvailableYearsResponse,
+)
 from src.services import DataService, OpenGINService
 
 router = APIRouter(prefix="/v1/data", tags=["Data"])
@@ -15,7 +20,7 @@ def get_data_service():
     "/data-catalog",
     summary="Get all parent/child categories and datasets.",
     description="Returns parent/child categories and datasets based on the given category id lists. If the list is empty, it returns the top level parent categories. If the list is not empty, it returns the categories/datasets in the next level for the given categories. The API traverses only one level.",
-    response_model=DataCatalogResponse
+    response_model=DataCatalogResponse,
 )
 async def get_data_catalog(
     request: DataCatalogRequest, service: DataService = Depends(get_data_service)
@@ -28,6 +33,7 @@ async def get_data_catalog(
     "/datasets/years",
     summary="Get all the dataset available years for the given datasets.",
     description="Returns the list of years and datasetIds for available datasets with dataset name.",
+    response_model=DatasetAvailableYearsResponse,
 )
 async def get_dataset_available_years(
     request: DatasetYearsRequest, service: DataService = Depends(get_data_service)
