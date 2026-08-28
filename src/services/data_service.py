@@ -8,7 +8,14 @@ from src.enums import (
     RelationDirectionEnum,
 )
 from src.exception import BadRequestError, InternalServerError, NotFoundError
-from src.models import Entity, Kind, Relation, DataCatalogResponse
+from src.models import (
+    Entity,
+    Kind,
+    Relation,
+    DataCatalogResponse,
+    DatasetAvailableYearsResponse,
+)
+
 from aiohttp import ClientSession
 from src.utils import Util, http_client
 
@@ -186,7 +193,9 @@ class DataService:
                     categories_dictionary, "name", "categoryIds"
                 )
 
-                return DataCatalogResponse(categories=categories, datasets=[]).model_dump()
+                return DataCatalogResponse(
+                    categories=categories, datasets=[]
+                ).model_dump()
 
             else:
                 category_relation_instance = Relation(
@@ -246,7 +255,9 @@ class DataService:
                     dataset_dictionary, "name", "datasetIds"
                 )
 
-                return DataCatalogResponse(categories=categories, datasets=datasets).model_dump()
+                return DataCatalogResponse(
+                    categories=categories, datasets=datasets
+                ).model_dump()
 
         except BadRequestError:
             raise
@@ -309,7 +320,9 @@ class DataService:
             # sort the list by years
             dataset_years.sort(key=lambda x: x["year"])
 
-            return {"name": actual_name_title_case, "years": dataset_years}
+            return DatasetAvailableYearsResponse(
+                name=actual_name_title_case, years=dataset_years
+            ).model_dump()
 
         except (BadRequestError, NotFoundError):
             raise
