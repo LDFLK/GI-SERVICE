@@ -1,4 +1,18 @@
-from .data_requestbody import DataCatalogRequest, DatasetYearsRequest
+from .data_requestbody import (
+    DataCatalogRequest,
+    DatasetYearsRequest,
+    DataCatalogResponse,
+    DatasetAvailableYearsResponse,
+    DatasetRootItem,
+    DatasetNotFoundResponse,
+    TabularData,
+    DataAttributesResponse,
+    DataAttributesNotFoundResponse,
+    EntityKind,
+    DatasetInfo,
+    CategoryHierarchyItem,
+    DatasetCategoriesResponse,
+)
 from .opengin_schemas import (
     AttributeFilterRecord,
     AttributeFilterRecords,
@@ -60,4 +74,15 @@ __all__ = [
     "PresidentsResponse",
     "CabinetFlowResponse",
     "PersonHistoryResponse",
+    "DataCatalogResponse",
+    "DatasetAvailableYearsResponse",
+    "DatasetRootItem",
+    "DatasetNotFoundResponse",
+    "TabularData",
+    "DataAttributesResponse",
+    "DataAttributesNotFoundResponse",
+    "EntityKind",
+    "DatasetInfo",
+    "CategoryHierarchyItem",
+    "DatasetCategoriesResponse",
 ]

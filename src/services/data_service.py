@@ -8,7 +8,7 @@ from src.enums import (
     RelationDirectionEnum,
 )
 from src.exception import BadRequestError, InternalServerError, NotFoundError
-from src.models import Entity, Kind, Relation
+from src.models import Entity, Kind, Relation, DataCatalogResponse
 from aiohttp import ClientSession
 from src.utils import Util, http_client
 
@@ -186,7 +186,7 @@ class DataService:
                     categories_dictionary, "name", "categoryIds"
                 )
 
-                return {"categories": categories, "datasets": []}
+                return DataCatalogResponse(categories=categories, datasets=[]).model_dump()
 
             else:
                 category_relation_instance = Relation(
@@ -246,7 +246,7 @@ class DataService:
                     dataset_dictionary, "name", "datasetIds"
                 )
 
-                return {"categories": categories, "datasets": datasets}
+                return DataCatalogResponse(categories=categories, datasets=datasets).model_dump()
 
         except BadRequestError:
             raise
