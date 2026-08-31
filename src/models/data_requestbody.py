@@ -1,7 +1,11 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Any
+from pydantic import (
+    BaseModel,
+    Field,
+    ConfigDict,
+    model_validator,
+)
 
-
+from typing import List, Any, Literal
 class DataCatalogRequest(BaseModel):
     categoryIds: list[str] = Field(None, description="List of category IDs")
 
@@ -111,19 +115,37 @@ class TabularData(BaseModel):
         examples=[[["1", "Test", "2020"]]],
     )
 
+    @model_validator(mode="after")
+    def _check_row_cardinality(self) -> "TabularData":
+        expected = len(self.columns)
+        for i, row in enumerate(self.rows):
+            if len(row) != expected:
+                raise ValueError(
+                    f"row {i} has {len(row)} values, expected {expected} to match columns"
+                )
+        return self
+
 
 class DataAttributesResponse(BaseModel):
     """Response for a dataset's formatted attributes. `data` shape depends on `type`."""
 
     model_config = ConfigDict(extra="forbid")
 
-    type: str = Field(
+    type: Literal["tabular", "document", "graph"] = Field(
         ..., description="tabular | document | graph", examples=["tabular"]
     )
     data: TabularData | dict = Field(
         ...,
-        description="Type-specific payload; strictly validated only when type='tabular'",
+        description="Type-specific payload; strictly validated when type='tabular', unvalidated otherwise",
     )
+
+    @model_validator(mode="after")
+    def _check_tabular_data_type(self) -> "DataAttributesResponse":
+        if self.type == "tabular" and not isinstance(self.data, TabularData):
+            raise ValueError(
+                "data must be a valid TabularData object when type='tabular'"
+            )
+        return self
 
 
 class DataAttributesNotFoundResponse(BaseModel):
