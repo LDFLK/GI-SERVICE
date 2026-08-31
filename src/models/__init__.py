@@ -3,7 +3,6 @@ from .data_requestbody import (
     DatasetYearsRequest,
     DataCatalogResponse,
     DatasetAvailableYearsResponse,
-<<<<<<< HEAD
     DatasetRootItem,
     DatasetNotFoundResponse,
     TabularData,
@@ -15,10 +14,6 @@ from .data_requestbody import (
     DatasetCategoriesResponse,
 )
 from .opengin_schemas import (
-=======
-)
-from .organisation_schemas import (
->>>>>>> 9597bce (fix: added pydantic model validation for fetch_dataset_available_years)
     AttributeFilterRecord,
     AttributeFilterRecords,
     Category,
@@ -64,7 +59,6 @@ __all__ = [
     "Relation",
     "SearchResponse",
     "SearchResult",
-<<<<<<< HEAD
     "Person",
     "PortfolioPerson",
     "PortfolioPersonsResponse",
@@ -91,8 +85,3 @@ __all__ = [
     "CategoryHierarchyItem",
     "DatasetCategoriesResponse",
 ]
-=======
-    "DataCatalogResponse",
-    "DatasetAvailableYearsResponse",
-]
->>>>>>> 9597bce (fix: added pydantic model validation for fetch_dataset_available_years)

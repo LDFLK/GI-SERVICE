@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Any
 
 
 class DataCatalogRequest(BaseModel):
@@ -71,3 +71,64 @@ class DatasetAvailableYearsResponse(BaseModel):
         examples=["Population"],
     )
     years: List[DatasetYearEntry] = Field(default_factory=list)
+
+
+class DatasetRootItem(BaseModel):
+    """Root department/state minister/cabinet minister entity for a dataset."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(..., description="Root entity ID", examples=["dep-xx"])
+    name: str = Field(
+        ..., description="Decoded root entity name", examples=["Ministry of Finance"]
+    )
+    type: str = Field(
+        ...,
+        description="Root entity kind.minor value, e.g. Department, StateMinister, CabinetMinister",
+        examples=["Department"],
+    )
+
+
+class DatasetNotFoundResponse(BaseModel):
+    """Returned instead of DatasetRootItem when no root entity is found."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    detail: str = Field(..., examples=["Dataset not found"])
+
+
+class TabularData(BaseModel):
+    """Data structure for type='tabular'."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    columns: List[str] = Field(
+        ..., description="Column names", examples=[["id", "name", "year"]]
+    )
+    rows: List[List[Any]] = Field(
+        ...,
+        description="Row data, each row aligned to columns",
+        examples=[[["1", "Test", "2020"]]],
+    )
+
+
+class DataAttributesResponse(BaseModel):
+    """Response for a dataset's formatted attributes. `data` shape depends on `type`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: str = Field(
+        ..., description="tabular | document | graph", examples=["tabular"]
+    )
+    data: TabularData | dict = Field(
+        ...,
+        description="Type-specific payload; strictly validated only when type='tabular'",
+    )
+
+
+class DataAttributesNotFoundResponse(BaseModel):
+    """Returned instead of DataAttributesResponse when the dataset or its relations aren't found."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(..., examples=["Dataset or its relations not found"])
