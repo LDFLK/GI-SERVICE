@@ -17,6 +17,8 @@ from src.models import (
     DataAttributesNotFoundResponse,
     DataAttributesResponse,
     DatasetRootItem,
+    DatasetCategoriesResponse,
+    DatasetInfo,
 )
 
 from aiohttp import ClientSession
@@ -512,14 +514,14 @@ class DataService:
             # Traverse up and collect all categories
             categories = await self._collect_category_hierarchy(category_id)
 
-            return {
-                "dataset": {
-                    "id": dataset_id,
-                    "name": dataset_name,
-                    "kind": {"major": dataset.kind.major, "minor": dataset.kind.minor},
-                },
-                "categories": categories,
-            }
+            return DatasetCategoriesResponse(
+                dataset=DatasetInfo(
+                    id=dataset_id,
+                    name=dataset_name,
+                    kind={"major": dataset.kind.major, "minor": dataset.kind.minor},
+                ),
+                categories=categories,
+            ).model_dump()
 
         except (BadRequestError, NotFoundError):
             raise
