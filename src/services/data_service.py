@@ -14,6 +14,8 @@ from src.models import (
     Relation,
     DataCatalogResponse,
     DatasetAvailableYearsResponse,
+    DataAttributesNotFoundResponse,
+    DataAttributesResponse,
 )
 
 from aiohttp import ClientSession
@@ -368,7 +370,9 @@ class DataService:
             # Extract dataset information
             if not dataset_entity_result or not dataset_relations_result:
                 logger.error(f"Dataset or its relations not found for id: {dataset_id}")
-                return {"message": "Dataset or its relations not found"}
+                return DataAttributesNotFoundResponse(
+                    message="Dataset or its relations not found"
+                ).model_dump()
 
             dataset_first_datum = dataset_entity_result[0]
             dataset_name = Util.decode_protobuf_attribute_name(dataset_first_datum.name)
@@ -385,7 +389,7 @@ class DataService:
                 attribute_data_out={"data": attributes}
             )
 
-            return formatted_attributes
+            return DataAttributesResponse(**formatted_attributes).model_dump()
 
         except (BadRequestError, NotFoundError):
             raise

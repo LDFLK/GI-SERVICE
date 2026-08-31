@@ -5,6 +5,8 @@ from src.models import (
     DatasetYearsRequest,
     DataCatalogResponse,
     DatasetAvailableYearsResponse,
+    DataAttributesResponse,
+    DataAttributesNotFoundResponse,
 )
 from src.services import DataService, OpenGINService
 
@@ -46,6 +48,7 @@ async def get_dataset_available_years(
     "/datasets/{datasetId}/data",
     summary="Get the data attributes for the given dataset.",
     description="Returns the data attributes for the given dataset",
+    response_model=DataAttributesResponse | DataAttributesNotFoundResponse,
 )
 async def get_data_attributes(
     datasetId: str = Path(..., description="The ID of the dataset"),
