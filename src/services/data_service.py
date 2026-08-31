@@ -16,6 +16,7 @@ from src.models import (
     DatasetAvailableYearsResponse,
     DataAttributesNotFoundResponse,
     DataAttributesResponse,
+    DatasetRootItem,
 )
 
 from aiohttp import ClientSession
@@ -445,11 +446,11 @@ class DataService:
             root_entity_name = Util.decode_protobuf_attribute_name(root_entity.name)
 
             # arrange the response
-            root_entity_data = {
-                "id": root_entity.id,
-                "name": root_entity_name,
-                "type": root_entity.kind.minor,
-            }
+            root_entity_data = DatasetRootItem(
+                id=root_entity.id,
+                name=root_entity_name,
+                type=root_entity.kind.minor,
+            ).model_dump()
 
             return root_entity_data
 
