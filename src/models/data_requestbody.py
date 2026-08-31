@@ -6,6 +6,8 @@ from pydantic import (
 )
 
 from typing import List, Any, Literal
+
+
 class DataCatalogRequest(BaseModel):
     categoryIds: list[str] = Field(None, description="List of category IDs")
 
