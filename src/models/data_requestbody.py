@@ -132,3 +132,41 @@ class DataAttributesNotFoundResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     message: str = Field(..., examples=["Dataset or its relations not found"])
+
+
+class EntityKind(BaseModel):
+    """Major/minor kind classification, reused across dataset and category entries."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    major: str = Field(..., description="Kind major value", examples=["CATEGORY"])
+    minor: str = Field(..., description="Kind minor value", examples=["Department"])
+
+
+class DatasetInfo(BaseModel):
+    """Basic dataset identity info."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(..., description="Dataset ID", examples=["ds_xx"])
+    name: str = Field(..., description="Decoded dataset name", examples=["Population"])
+    kind: EntityKind
+
+
+class CategoryHierarchyItem(BaseModel):
+    """One category in the hierarchy, from immediate parent up to (and including) the root."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(..., description="Category ID", examples=["cat_xx"])
+    name: str = Field(..., description="Decoded category name", examples=["Health"])
+    kind: EntityKind
+
+
+class DatasetCategoriesResponse(BaseModel):
+    """Flat response — no envelope."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dataset: DatasetInfo
+    categories: List[CategoryHierarchyItem] = Field(default_factory=list)
