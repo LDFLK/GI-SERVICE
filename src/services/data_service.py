@@ -447,13 +447,11 @@ class DataService:
             root_entity_name = Util.decode_protobuf_attribute_name(root_entity.name)
 
             # arrange the response
-            root_entity_data = DatasetRootItem(
+            return DatasetRootItem(
                 id=root_entity.id,
                 name=root_entity_name,
                 type=root_entity.kind.minor,
             )
-
-            return root_entity_data
 
         except (BadRequestError, NotFoundError):
             raise
@@ -520,7 +518,7 @@ class DataService:
                     kind={"major": dataset.kind.major, "minor": dataset.kind.minor},
                 ),
                 categories=categories,
-            ).model_dump()
+            )
 
         except (BadRequestError, NotFoundError):
             raise
