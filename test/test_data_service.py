@@ -8,7 +8,15 @@ from src.enums import (
     RelationDirectionEnum,
 )
 from src.exception import BadRequestError, InternalServerError, NotFoundError
-from src.models import Entity, Kind, Relation
+from src.models import (
+    Entity,
+    Kind,
+    Relation,
+    DataCatalogResponse,
+    DatasetAvailableYearsResponse,
+    DataAttributesResponse,
+    DatasetRootItem,
+)
 
 
 # Tests for enrich_dataset
@@ -233,12 +241,11 @@ async def test_fetch_data_catalog_without_parent_id(data_service, mock_opengin_s
     ):
         result = await data_service.fetch_data_catalog()
 
-    assert "categories" in result
-    assert "datasets" in result
-    assert len(result["categories"]) == 2
-    assert len(result["datasets"]) == 0
+    assert isinstance(result, DataCatalogResponse)
+    assert len(result.categories) == 2
+    assert len(result.datasets) == 0
 
-    names = [c["name"] for c in result["categories"]]
+    names = [c.name for c in result.categories]
     assert "Category 1" in names
     assert "Category 2" in names
 
@@ -317,15 +324,14 @@ async def test_fetch_data_catalog_with_entity_id_and_relations(
     ):
         result = await data_service.fetch_data_catalog(category_ids=[entity_id])
 
-    assert "categories" in result
-    assert "datasets" in result
-    assert len(result["categories"]) == 2
-    assert len(result["datasets"]) == 1
+    assert isinstance(result, DataCatalogResponse)
+    assert len(result.categories) == 2
+    assert len(result.datasets) == 1
 
-    cat_names = [c["name"] for c in result["categories"]]
+    cat_names = [c.name for c in result.categories]
     assert "Child Category 1" in cat_names
 
-    ds_names = [d["name"] for d in result["datasets"]]
+    ds_names = [d.name for d in result.datasets]
     assert "Dataset Ds 2" in ds_names
 
     assert mock_opengin_service.fetch_relation.call_count == 2
@@ -343,11 +349,9 @@ async def test_fetch_data_catalog_with_entity_id_no_relations(
 
     result = await data_service.fetch_data_catalog(category_ids=[entity_id])
 
-    assert "categories" in result
-    assert "datasets" in result
-    assert not result["categories"]
-    assert not result["datasets"]
-
+    assert isinstance(result, DataCatalogResponse)
+    assert result.categories == []
+    assert result.datasets == []
     assert mock_opengin_service.fetch_relation.call_count == 2
 
 
@@ -385,10 +389,11 @@ async def test_fetch_data_catalog_with_only_categories(
     ):
         result = await data_service.fetch_data_catalog(category_ids=[entity_id])
 
-    assert len(result["categories"]) == 1
-    assert result["categories"][0]["name"] == "Solo Category"
-    assert "cat_1" in result["categories"][0]["categoryIds"]
-    assert not result["datasets"]
+    assert isinstance(result, DataCatalogResponse)
+    assert "cat_1" in result.categories[0].categoryIds
+    assert len(result.categories) == 1
+    assert result.datasets == []
+    assert result.categories[0].name == "Solo Category"
 
 
 @pytest.mark.asyncio
@@ -436,11 +441,12 @@ async def test_fetch_data_catalog_with_only_datasets(
     ):
         result = await data_service.fetch_data_catalog(category_ids=[entity_id])
 
-    assert not result["categories"]
-    assert len(result["datasets"]) == 2
-    ds_names = [d["name"] for d in result["datasets"]]
-    assert "Dataset 1" in ds_names
-    assert "Dataset 2" in ds_names
+        assert isinstance(result, DataCatalogResponse)
+        assert not result.categories
+        assert len(result.datasets) == 2
+        ds_names = [dataset.name for dataset in result.datasets]
+        assert "Dataset 1" in ds_names
+        assert "Dataset 2" in ds_names
 
 
 @pytest.mark.asyncio
@@ -505,23 +511,17 @@ async def test_fetch_dataset_available_years_success(
     ):
         result = await data_service.fetch_dataset_available_years(dataset_ids)
 
+    assert isinstance(result, DatasetAvailableYearsResponse)
     # Assertions
-    assert "name" in result
-    assert "years" in result  # Note: it's "years" not "year"
-    assert result["name"] == "Population Dataset"
-    assert len(result["years"]) == 3
-
+    assert result.name == "Population Dataset"
+    assert len(result.years) == 3
     # Results should be sorted by year
-    assert result["years"][0]["year"] == "2020"
-    assert result["years"][0]["datasetId"] == "dataset_123"
-
-    assert result["years"][1]["year"] == "2021"
-    assert result["years"][1]["datasetId"] == "dataset_124"
-
-    assert result["years"][2]["year"] == "2022"
-    assert result["years"][2]["datasetId"] == "dataset_125"
-
-    # Verify mocks were called correctly
+    assert result.years[0].year == "2020"
+    assert result.years[0].datasetId == "dataset_123"
+    assert result.years[1].year == "2021"
+    assert result.years[1].datasetId == "dataset_124"
+    assert result.years[2].year == "2022"
+    assert result.years[2].datasetId == "dataset_125"
     assert mock_opengin_service.get_entities.call_count == 3
 
 
@@ -550,9 +550,10 @@ async def test_fetch_dataset_available_years_single_year(
             dataset_ids=dataset_ids
         )
 
-    assert result["name"] == "Single Year Dataset"
-    assert len(result["years"]) == 1
-    assert result["years"][0]["year"] == "2023"
+    assert isinstance(result, DatasetAvailableYearsResponse)
+    assert result.name == "Single Year Dataset"
+    assert len(result.years) == 1
+    assert result.years[0].year == "2023"
 
 
 @pytest.mark.asyncio
@@ -597,10 +598,11 @@ async def test_fetch_dataset_available_years_with_missing_created_date(
             dataset_ids=dataset_ids
         )
 
+    assert isinstance(result, DatasetAvailableYearsResponse)
     # When created date is None, the year should be "Unknown"
-    assert result["name"] == "Dataset Without Date"
-    assert len(result["years"]) == 1
-    assert result["years"][0]["year"] == "Unknown"
+    assert result.name == "Dataset Without Date"
+    assert len(result.years) == 1
+    assert result.years[0].year == "Unknown"
 
 
 @pytest.mark.asyncio
@@ -661,16 +663,23 @@ async def test_fetch_dataset_available_years_multiple_years_sorted(
             dataset_ids=dataset_ids
         )
 
-    # After get_name_without_year removes -YYYY pattern, we get "Multi-Year Dataset", then title case
-    assert result["name"] == "Multi Year Dataset"
-    assert len(result["years"]) == 3
+    assert isinstance(result, DatasetAvailableYearsResponse)
+
+    # After get_name_without_year removes the -YYYY pattern,
+    # we get "Multi-Year Dataset", then title case
+    assert result.name == "Multi Year Dataset"
+
+    assert len(result.years) == 3
+
     # Check years are sorted correctly
-    assert result["years"][0]["year"] == "2019"
-    assert result["years"][0]["datasetId"] == "dataset_2019"
-    assert result["years"][1]["year"] == "2022"
-    assert result["years"][1]["datasetId"] == "dataset_2022"
-    assert result["years"][2]["year"] == "2024"
-    assert result["years"][2]["datasetId"] == "dataset_2024"
+    assert result.years[0].year == "2019"
+    assert result.years[0].datasetId == "dataset_2019"
+
+    assert result.years[1].year == "2022"
+    assert result.years[1].datasetId == "dataset_2022"
+
+    assert result.years[2].year == "2024"
+    assert result.years[2].datasetId == "dataset_2024"
 
 
 # Tests for fetch_data_attributes
@@ -726,12 +735,11 @@ async def test_fetch_data_attributes_success(data_service, mock_opengin_service)
     ):
         result = await data_service.fetch_data_attributes(dataset_id=dataset_id)
 
-    # Assertions
     assert result is not None
-    assert result["type"] == KindMinorEnum.TABULAR.value
-    assert "data" in result
-    assert result["data"]["columns"] == ["attribute1", "attribute2"]
-    assert len(result["data"]["rows"]) == 2
+    assert isinstance(result, DataAttributesResponse)
+    assert result.type == KindMinorEnum.TABULAR.value
+    assert result.data.columns == ["attribute1", "attribute2"]
+    assert len(result.data.rows) == 2
 
     # Verify mocks were called correctly
     mock_opengin_service.get_entities.assert_called_once_with(
@@ -854,9 +862,9 @@ async def test_fetch_data_attributes_with_empty_attributes(
     ):
         result = await data_service.fetch_data_attributes(dataset_id=dataset_id)
 
-    assert result["type"] == KindMinorEnum.TABULAR.value
-    assert result["data"]["columns"] == []
-    assert result["data"]["rows"] == []
+    assert result.type == KindMinorEnum.TABULAR.value
+    assert result.data.columns == []
+    assert result.data.rows == []
 
 
 @pytest.mark.asyncio
@@ -1303,10 +1311,11 @@ async def test_fetch_dataset_root_success_with_department(
     ):
         result = await data_service.fetch_dataset_root(dataset_id)
 
+    assert isinstance(result, DatasetRootItem)
     assert result is not None
-    assert result["id"] == department_id
-    assert result["name"] == "Ministry of Health"
-    assert result["type"] == KindMinorEnum.DEPARTMENT.value
+    assert result.id == department_id
+    assert result.name == "Ministry of Health"
+    assert result.type == KindMinorEnum.DEPARTMENT.value
 
     # Verify fetch_relation was called with correct parameters
     mock_opengin_service.fetch_relation.assert_called_once_with(
@@ -1377,10 +1386,11 @@ async def test_fetch_dataset_root_success_with_minister(
     ):
         result = await data_service.fetch_dataset_root(dataset_id)
 
+    assert isinstance(result, DatasetRootItem)
     assert result is not None
-    assert result["id"] == minister_id
-    assert result["name"] == "Minister of Health"
-    assert result["type"] == KindMinorEnum.STATE_MINISTER.value
+    assert result.id == minister_id
+    assert result.name == "Minister of Health"
+    assert result.type == KindMinorEnum.STATE_MINISTER.value
 
 
 @pytest.mark.asyncio
@@ -1538,8 +1548,9 @@ async def test_fetch_dataset_root_multiple_relations_uses_first(
     ):
         result = await data_service.fetch_dataset_root(dataset_id)
 
+    assert isinstance(result, DatasetRootItem)
     assert result is not None
-    assert result["id"] == department_id
+    assert result.id == department_id
     # Verify get_entities was called with the first relation's category_id
     mock_opengin_service.get_entities.assert_called_with(
         entity=Entity(id=category_id_1)
