@@ -198,9 +198,7 @@ class DataService:
                     categories_dictionary, "name", "categoryIds"
                 )
 
-                return DataCatalogResponse(
-                    categories=categories, datasets=[]
-                ).model_dump()
+                return DataCatalogResponse(categories=categories, datasets=[])
 
             else:
                 category_relation_instance = Relation(
@@ -260,9 +258,7 @@ class DataService:
                     dataset_dictionary, "name", "datasetIds"
                 )
 
-                return DataCatalogResponse(
-                    categories=categories, datasets=datasets
-                ).model_dump()
+                return DataCatalogResponse(categories=categories, datasets=datasets)
 
         except BadRequestError:
             raise
@@ -327,7 +323,7 @@ class DataService:
 
             return DatasetAvailableYearsResponse(
                 name=actual_name_title_case, years=dataset_years
-            ).model_dump()
+            )
 
         except (BadRequestError, NotFoundError):
             raise
@@ -392,7 +388,10 @@ class DataService:
                 attribute_data_out={"data": attributes}
             )
 
-            return DataAttributesResponse(**formatted_attributes).model_dump()
+            return DataAttributesResponse(
+                type=formatted_attributes["type"],
+                data=formatted_attributes["data"],
+            )
 
         except (BadRequestError, NotFoundError):
             raise
@@ -452,7 +451,7 @@ class DataService:
                 id=root_entity.id,
                 name=root_entity_name,
                 type=root_entity.kind.minor,
-            ).model_dump()
+            )
 
             return root_entity_data
 
