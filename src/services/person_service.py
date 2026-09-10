@@ -142,7 +142,7 @@ class PersonService:
                 ministry_history=ministry_history,
                 ministries_worked_at=len(ministry_history),
                 worked_as_president=len(president_relations),
-            ).model_dump()
+            )
 
             return final_result
 
