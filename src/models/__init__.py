@@ -10,7 +10,7 @@ from .organisation_schemas import (
     Label,
     Relation,
 )
-from .person_schemas import PersonResponse, PersonSource
+from .person_schemas import PersonResponse, PersonSource, PersonHistoryResponse
 from .search_schemas import SearchResponse, SearchResult
 
 __all__ = [
@@ -29,4 +29,5 @@ __all__ = [
     "Relation",
     "SearchResponse",
     "SearchResult",
+    "PersonHistoryResponse",
 ]
