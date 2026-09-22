@@ -14,6 +14,7 @@ from src.models import (
     PortfolioPersonsResponse,
     BodiesByDepartmentResponse,
     PresidentsResponse,
+    DepartmentItem,
     BodyItem,
 )
 
@@ -369,18 +370,18 @@ async def test_departments_by_portfolio_id_success(
         )
 
     assert isinstance(result, DepartmentsByPortfolioResponse)
-    assert result.model_dump() == {
-        "totalDepartments": 1,
-        "newDepartments": 0,
-        "departmentList": [
-            {
-                "id": "department_123",
-                "name": "Department_of_security",
-                "isNew": False,
-                "hasData": False,
-            }
+    assert result == DepartmentsByPortfolioResponse(
+        totalDepartments=1,
+        newDepartments=0,
+        departmentList=[
+            DepartmentItem(
+                id="department_123",
+                name="Department_of_security",
+                isNew=False,
+                hasData=False,
+            )
         ],
-    }
+    )
 
     mock_opengin_service.fetch_relation.assert_called_once_with(
         entityId=portfolio_id,
@@ -1745,7 +1746,7 @@ async def test_bodies_by_department_no_relations_found(
     result = await organisation_service.bodies_by_department(
         department_id="department_123", selected_date="2023-10-27"
     )
-
+    assert isinstance(result, BodiesByDepartmentResponse)
     assert result.totalBodies == 0
     assert result.newBodies == 0
     assert result.bodyList == []
@@ -1951,14 +1952,18 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
             type="Council",
         )
 
-        await organisation_service.bodies_by_department(
+        result = await organisation_service.bodies_by_department(
             department_id=department_id, selected_date=selected_date
         )
+
+    assert result.bodyList[0].id == "body_1"
+    assert result.bodyList[0].name == "Body 1 Name"
+    assert result.bodyList[0].isNew is True
+    assert result.bodyList[0].type == "Council"
 
     mock_enrich_body.assert_called_once_with(
         body_relation=body_relation, selected_date=normalized_date
     )
-
 
 @pytest.mark.asyncio
 async def test_bodies_by_department_whitespace_department_id(organisation_service):
