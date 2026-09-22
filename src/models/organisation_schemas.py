@@ -27,7 +27,9 @@ class Date(BaseModel):
         return value
 
 
-class PersonListItem(BaseModel):
+class BasePersonItem(BaseModel):
+    """Shared identity fields for any person-like entity (citizen, minister, PM, president)."""
+
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="Person ID", examples=["cit-xx"])
@@ -39,6 +41,11 @@ class PersonListItem(BaseModel):
         description="True if start_time falls on the queried date",
         examples=[False],
     )
+
+
+class Person(BasePersonItem):
+    """Person item with presidency indicator, for portfolios / cabinets."""
+
     isPresident: bool = Field(
         ...,
         description="True if this person is the currently selected president",
@@ -53,18 +60,22 @@ class PortfolioPersonsResponse(BaseModel):
     newCount: int = Field(
         ..., ge=0, description="Count of persons where is_new is true", examples=[0]
     )
-    personList: List[PersonListItem]
+    personList: List[Person] = Field(default_factory=list)
 
 
-class BodyListItem(BaseModel):
+class BodyItem(BaseModel):
     """Maps to the item schema under bodyList — all four fields required."""
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str
-    id: str
-    isNew: bool
-    type: str
+    name: str = Field(..., description="Body name", examples=["Test Body"])
+    id: str = Field(..., description="Body ID", examples=["body-xx"])
+    isNew: bool = Field(
+        ...,
+        description="True if start_time falls on the queried date",
+        examples=[False],
+    )
+    type: str = Field(..., description="Body type", examples=["Department"])
 
 
 class BodiesByDepartmentResponse(BaseModel):
@@ -74,42 +85,54 @@ class BodiesByDepartmentResponse(BaseModel):
 
     totalBodies: int = Field(..., ge=0)
     newBodies: int = Field(..., ge=0)
-    bodyList: List[BodyListItem] = Field(default_factory=list)
+    bodyList: List[BodyItem] = Field(default_factory=list)
 
 
 class DepartmentItem(BaseModel):
-    id: str
-    name: str
-    isNew: bool = False
-    hasData: bool = False
-
-
-class DepartmentsByPortfolioResponse(BaseModel):
-    totalDepartments: int = 0
-    newDepartments: int = 0
-    departmentList: List[DepartmentItem] = Field(default_factory=list)
-
-
-class MinisterListItem(BaseModel):
-    """Matches the dict shape returned by enrich_person_data."""
+    """Matches the dict shape returned by enrich_department_data — all fields required."""
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str = Field(..., description="Minister ID", examples=["cit-xx"])
-    name: str = Field(..., description="Minister name", examples=["Test Minister"])
+    id: str = Field(..., description="Department ID", examples=["dep-xx"])
+    name: str = Field(..., description="Department name", examples=["Test Department"])
     isNew: bool = Field(
         ...,
         description="True if start_time falls on the queried date",
         examples=[False],
     )
-    isPresident: bool = Field(
+    hasData: bool = Field(
         ...,
-        description="True if this minister is the current president",
-        examples=[False],
+        description="True if this department has associated data",
+        examples=[True],
     )
 
+    @field_validator("id", "name")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("must not be empty")
+        return value
 
-class PortfolioListItem(BaseModel):
+
+class DepartmentsByPortfolioResponse(BaseModel):
+    """Flat response — no envelope."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    totalDepartments: int = Field(..., ge=0, examples=[10])
+    newDepartments: int = Field(..., ge=0, examples=[2])
+    departmentList: List[DepartmentItem] = Field(default_factory=list)
+
+    @field_validator("newDepartments")
+    @classmethod
+    def _new_not_greater_than_total(cls, value: int, info) -> int:
+        total = info.data.get("totalDepartments")
+        if total is not None and value > total:
+            raise ValueError("newDepartments cannot exceed totalDepartments")
+        return value
+
+
+class PortfolioItem(BaseModel):
     """Matches the dict shape returned by enrich_portfolio_item."""
 
     model_config = ConfigDict(extra="forbid")
@@ -128,7 +151,7 @@ class PortfolioListItem(BaseModel):
         description="True if this portfolio is new as of the selected date",
         examples=[False],
     )
-    ministers: List[MinisterListItem] = Field(default_factory=list)
+    ministers: List[Person] = Field(default_factory=list)
 
 
 class ActivePortfolioListResponse(BaseModel):
@@ -141,21 +164,12 @@ class ActivePortfolioListResponse(BaseModel):
     newMinistries: int = Field(..., ge=0, examples=[1])
     newMinisters: int = Field(..., ge=0, examples=[1])
     ministriesUnderPresident: int = Field(..., ge=0, examples=[2])
-    portfolioList: List[PortfolioListItem] = Field(default_factory=list)
+    portfolioList: List[PortfolioItem] = Field(default_factory=list)
 
 
-class PrimeMinisterItem(BaseModel):
+class PrimeMinisterItem(BasePersonItem):
     """Matches enrich_person_data output after isPresident is dropped and term is added."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    id: str = Field(..., description="Prime Minister ID", examples=["cit-xx"])
-    name: str = Field(..., description="Prime Minister name", examples=["Test PM"])
-    isNew: bool = Field(
-        ...,
-        description="True if start_time falls on the queried date",
-        examples=[False],
-    )
     term: str = Field(
         ..., description="Formatted term string", examples=["2020 - 2022"]
     )

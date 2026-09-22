@@ -11,13 +11,13 @@ from src.exception import BadRequestError, InternalServerError, NotFoundError
 from src.models import (
     Entity,
     Relation,
-    PersonListItem,
+    Person,
     PortfolioPersonsResponse,
     BodiesByDepartmentResponse,
-    BodyListItem,
+    BodyItem,
     DepartmentsByPortfolioResponse,
     ActivePortfolioListResponse,
-    PortfolioListItem,
+    PortfolioItem,
     PrimeMinisterResponse,
     EntityNamesResponse,
     DepartmentHistoryResponse,
@@ -213,8 +213,7 @@ class OrganisationService:
             logger.error(f"Error fetching portfolio item: {e}")
             raise InternalServerError("An unexpected error occurred") from e
 
-        # active portfolio list
-
+    # active portfolio list
     async def active_portfolio_list(self, president_id: str, selected_date: str):
         """
         Docstring for activePortfolioList
@@ -314,12 +313,12 @@ class OrganisationService:
             # doing any counting, so downstream aggregation works on a known shape.
             try:
                 validated_portfolios = [
-                    PortfolioListItem(**p) for p in successful_portfolios
+                    PortfolioItem(**p) for p in successful_portfolios
                 ]
             except Exception as e:
                 logger.error(
                     f"process_portfolio_item returned a payload that doesn't match "
-                    f"PortfolioListItem for president {president_id}: {e}",
+                    f"PortfolioItem for president {president_id}: {e}",
                     exc_info=True,
                 )
                 raise InternalServerError("Failed to process portfolios") from e
@@ -332,7 +331,10 @@ class OrganisationService:
             for portfolio in validated_portfolios:
                 newMinistries += portfolio.isNew
                 noOfStateMinistries += (
-                    1 if portfolio.type.lower() == "stateminister" else 0
+                    1
+                    if portfolio.type.lower()
+                    == KindMinorEnum.STATE_MINISTER.value.lower()
+                    else 0
                 )
                 for minister in portfolio.ministers:
                     newMinisters += minister.isNew
@@ -351,7 +353,10 @@ class OrganisationService:
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
-            print(e)
+            logger.error(
+                f"Unexpected error in active_portfolio_list for president {president_id}: {e}",
+                exc_info=True,
+            )
             raise InternalServerError("An unexpected error occurred") from e
 
     # helper: enrich department
@@ -1170,11 +1175,11 @@ class OrganisationService:
                 raise InternalServerError("Failed to process persons for portfolio")
 
             try:
-                validated_persons = [PersonListItem(**p) for p in person_list]
+                validated_persons = [Person(**p) for p in person_list]
             except Exception as e:
                 logger.error(
                     f"enrich_person_data returned a payload that doesn't match "
-                    f"PersonListItem for portfolio {portfolio_id}: {e}",
+                    f"Person for portfolio {portfolio_id}: {e}",
                     exc_info=True,
                 )
                 raise InternalServerError(
@@ -1245,7 +1250,7 @@ class OrganisationService:
         body_start_date = Util.normalize_timestamp(body_relation.startTime)
         is_new = body_start_date == selected_date
 
-        return BodyListItem(
+        return BodyItem(
             id=body_id,
             name=name,
             isNew=is_new,
@@ -1262,18 +1267,16 @@ class OrganisationService:
 
         output type:
         {
-            {
-                "totalBodies": 0,
-                "newBodies": 0,
-                "bodyList": [
-                    {
-                    "name": "",
-                    "id": "",
-                    "isNew": false,
-                    "type": "",
-                    },
-                ]
-            }
+            "totalBodies": 0,
+            "newBodies": 0,
+            "bodyList": [
+                {
+                "name": "",
+                "id": "",
+                "isNew": false,
+                "type": "",
+                },
+            ]
         }
         """
 

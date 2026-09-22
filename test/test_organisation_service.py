@@ -14,7 +14,7 @@ from src.models import (
     PortfolioPersonsResponse,
     BodiesByDepartmentResponse,
     PresidentsResponse,
-    BodyListItem,
+    BodyItem,
 )
 
 
@@ -1490,7 +1490,7 @@ async def test_enrich_body_item_is_new(
             body_relation=body_relation, selected_date=selected_date
         )
 
-    assert isinstance(result, BodyListItem)
+    assert isinstance(result, BodyItem)
     assert result.id == "body_123"
     assert result.name == "decoded_name"
     assert result.isNew == expected_is_new
@@ -1781,13 +1781,13 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
         new_callable=AsyncMock,
     ) as mock_enrich_body:
         mock_enrich_body.side_effect = [
-            BodyListItem(
+            BodyItem(
                 id="body_1",
                 name="Body 1 Name",
                 isNew=True,
                 type="Council",
             ),
-            BodyListItem(
+            BodyItem(
                 id="body_2",
                 name="Body 2 Name",
                 isNew=False,
@@ -1857,7 +1857,7 @@ async def test_bodies_by_department_partial_enrichment_failure(
         new_callable=AsyncMock,
     ) as mock_enrich_body:
         mock_enrich_body.side_effect = [
-            BodyListItem(
+            BodyItem(
                 id="body_1",
                 name="Body 1 Name",
                 isNew=True,
@@ -1944,7 +1944,7 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
         "src.services.organisation_service.OrganisationService.enrich_body_item",
         new_callable=AsyncMock,
     ) as mock_enrich_body:
-        mock_enrich_body.return_value = BodyListItem(
+        mock_enrich_body.return_value = BodyItem(
             id="body_1",
             name="Body 1 Name",
             isNew=True,

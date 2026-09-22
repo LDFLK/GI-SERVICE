@@ -9,6 +9,7 @@ from src.models import (
     DepartmentHistoryResponse,
     PresidentsResponse,
     CabinetFlowResponse,
+    DepartmentsByPortfolioResponse,
 )
 from src.services import OpenGINService, OrganisationService
 from typing import Sequence
@@ -40,6 +41,7 @@ async def active_portfolio_list(
     "/departments-by-portfolio/{portfolio_id}",
     summary="Get active departments for a portfolio.",
     description="Returns a list of departments under a given portfolio and a given date.",
+    response_model=DepartmentsByPortfolioResponse,
 )
 async def departments_by_portfolio(
     portfolio_id: str = Path(..., description="ID of the portfolio"),
