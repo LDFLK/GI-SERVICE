@@ -1965,6 +1965,7 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
         body_relation=body_relation, selected_date=normalized_date
     )
 
+
 @pytest.mark.asyncio
 async def test_bodies_by_department_whitespace_department_id(organisation_service):
     with pytest.raises(BadRequestError):
