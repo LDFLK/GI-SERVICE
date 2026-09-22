@@ -54,10 +54,6 @@ class Dataset(BaseModel):
     kind: Kind = Kind()
 
 
-class Date(BaseModel):
-    date: str
-
-
 class AttributeFilterRecord(BaseModel):
     field_name: str
     operator: Literal[

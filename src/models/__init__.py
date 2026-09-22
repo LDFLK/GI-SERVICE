@@ -12,7 +12,6 @@ from .opengin_schemas import (
 from .person_schemas import PersonResponse, PersonSource
 from .search_schemas import SearchResponse, SearchResult
 from .organisation_schemas import (
-    Date,
     PortfolioPersonsResponse,
     Person,
     BodyItem,
@@ -27,6 +26,7 @@ from .organisation_schemas import (
     PresidentsResponse,
     CabinetFlowResponse,
 )
+from .common_schemas import Date
 
 __all__ = [
     "AttributeFilterRecord",
