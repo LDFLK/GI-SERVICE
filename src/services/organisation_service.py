@@ -8,7 +8,22 @@ import logging
 from typing import Optional, Sequence
 from src.enums import EntityIdEnum, RelationDirectionEnum, RelationNameEnum
 from src.exception import BadRequestError, InternalServerError, NotFoundError
-from src.models import Entity, Relation
+from src.models import (
+    Entity,
+    Relation,
+    PortfolioPerson,
+    PortfolioPersonsResponse,
+    BodiesByDepartmentResponse,
+    BodyItem,
+    DepartmentsByPortfolioResponse,
+    ActivePortfolioListResponse,
+    PortfolioItem,
+    PrimeMinisterResponse,
+    EntityNamesResponse,
+    DepartmentHistoryResponse,
+    PresidentsResponse,
+    CabinetFlowResponse,
+)
 from src.utils import Util, http_client
 
 logger = logging.getLogger(__name__)
@@ -217,6 +232,7 @@ class OrganisationService:
                 {
                 "id": "",
                 "name": "",
+                "type": "",
                 "isNew": false,
                 "ministers": [
                     {
@@ -257,14 +273,14 @@ class OrganisationService:
             # the standard empty response without attempting portfolio processing.
             activePortfolioList = activePortfolioList or []
             if not activePortfolioList:
-                return {
-                    "NoOfCabinetMinistries": 0,
-                    "NoOfStateMinistries": 0,
-                    "newMinistries": 0,
-                    "newMinisters": 0,
-                    "ministriesUnderPresident": 0,
-                    "portfolioList": [],
-                }
+                return ActivePortfolioListResponse(
+                    NoOfCabinetMinistries=0,
+                    NoOfStateMinistries=0,
+                    newMinistries=0,
+                    newMinisters=0,
+                    ministriesUnderPresident=0,
+                    portfolioList=[],
+                )
 
             # Process each portfolio item in parallel
             results = await asyncio.gather(
@@ -293,37 +309,54 @@ class OrganisationService:
             if results and len(exceptions) == len(results):
                 raise InternalServerError("Failed to process all portfolios")
 
+            # Validate raw portfolio dicts against the response schema before
+            # doing any counting, so downstream aggregation works on a known shape.
+            try:
+                validated_portfolios = [
+                    PortfolioItem(**p) for p in successful_portfolios
+                ]
+            except Exception as e:
+                logger.error(
+                    f"process_portfolio_item returned a payload that doesn't match "
+                    f"PortfolioItem for president {president_id}: {e}",
+                    exc_info=True,
+                )
+                raise InternalServerError("Failed to process portfolios") from e
+
             # Calculate final counts
             newMinistries = newMinisters = ministriesUnderPresident = (
                 noOfStateMinistries
             ) = 0
 
-            for portfolio in successful_portfolios:
-                newMinistries += portfolio.get("isNew", False)
-                ministers = portfolio.get("ministers", [])
+            for portfolio in validated_portfolios:
+                newMinistries += portfolio.isNew
                 noOfStateMinistries += (
-                    1 if portfolio.get("type", "").lower() == "stateminister" else 0
+                    1
+                    if portfolio.type.lower()
+                    == KindMinorEnum.STATE_MINISTER.value.lower()
+                    else 0
                 )
-                for minister in ministers:
-                    if isinstance(minister, dict):
-                        newMinisters += minister.get("isNew", False)
-                        ministriesUnderPresident += minister.get("isPresident", False)
+                for minister in portfolio.ministers:
+                    newMinisters += minister.isNew
+                    ministriesUnderPresident += minister.isPresident
 
             # final result to return
-            final_result = {
-                "NoOfCabinetMinistries": len(activePortfolioList) - noOfStateMinistries,
-                "NoOfStateMinistries": noOfStateMinistries,
-                "newMinistries": newMinistries,
-                "newMinisters": newMinisters,
-                "ministriesUnderPresident": ministriesUnderPresident,
-                "portfolioList": successful_portfolios,
-            }
-
-            return final_result
+            return ActivePortfolioListResponse(
+                NoOfCabinetMinistries=len(activePortfolioList) - noOfStateMinistries,
+                NoOfStateMinistries=noOfStateMinistries,
+                newMinistries=newMinistries,
+                newMinisters=newMinisters,
+                ministriesUnderPresident=ministriesUnderPresident,
+                portfolioList=validated_portfolios,
+            )
 
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
+            logger.error(
+                f"Unexpected error in active_portfolio_list for president {president_id}: {e}",
+                exc_info=True,
+            )
             raise InternalServerError("An unexpected error occurred") from e
 
     # helper: enrich department
@@ -425,21 +458,19 @@ class OrganisationService:
             # Calculate final counts
             new_departments = sum(1 for d in departments if d.get("isNew"))
 
-            # final departments to return
-            final_result = {
-                "totalDepartments": len(departments),
-                "newDepartments": new_departments,
-                "departmentList": departments,
-            }
-
-            return final_result
+            return DepartmentsByPortfolioResponse(
+                totalDepartments=len(departments),
+                newDepartments=new_departments,
+                departmentList=departments,
+            )
 
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
             raise InternalServerError("An unexpected error occurred") from e
 
-    # API: prime minister data for the given date
+        # API: prime minister data for the given date
+
     async def fetch_prime_minister(self, selected_date):
         """
         Fetch Prime Minister
@@ -470,7 +501,7 @@ class OrganisationService:
             )
 
             if not prime_minister_relations:
-                return {"body": {}}
+                return PrimeMinisterResponse(body={})
 
             first_prime_minister_relation = prime_minister_relations[0]
 
@@ -480,7 +511,7 @@ class OrganisationService:
             )
 
             if not prime_minister_data:
-                return {"body": {}}
+                return PrimeMinisterResponse(body={})
 
             prime_minister_data.pop("isPresident", None)
 
@@ -491,9 +522,7 @@ class OrganisationService:
 
             prime_minister_data["term"] = term
 
-            final_result = {"body": prime_minister_data}
-
-            return final_result
+            return PrimeMinisterResponse(body=prime_minister_data)
 
         except (BadRequestError, NotFoundError):
             raise
@@ -749,11 +778,11 @@ class OrganisationService:
             for node in nodes:
                 node["name"] = name_lookup.get(node["id"])
 
-            return {
-                "nodes": nodes,
-                "links": links,
-                "dates": date_status,
-            }
+            return CabinetFlowResponse(
+                nodes=nodes,
+                links=links,
+                dates=date_status,
+            )
         except (BadRequestError, NotFoundError):
             raise
         except Exception as e:
@@ -789,19 +818,23 @@ class OrganisationService:
                 entity_map[result[0].id] = result[0]
         return entity_map
 
-    async def resolve_entity_names(self, entity_ids: Sequence[str]) -> dict[str, str]:
+    async def resolve_entity_names(
+        self, entity_ids: Sequence[str]
+    ) -> EntityNamesResponse:
         """Resolve entity IDs to decoded display names."""
         if not entity_ids:
-            return {}
+            return EntityNamesResponse(root={})
 
         unique_ids = list(dict.fromkeys(entity_ids))
         entity_map = await self._fetch_and_map_entities(unique_ids)
 
-        return {
+        result = {
             entity_id: Util.decode_protobuf_attribute_name(entity.name)
             for entity_id, entity in entity_map.items()
             if entity.name
         }
+
+        return EntityNamesResponse(root=result)
 
     # helper : fetch relations for multiple entities in parallel and map them by id
     async def _fetch_and_map_relations(
@@ -1023,7 +1056,7 @@ class OrganisationService:
                 for key in ["startTime", "endTime"]:
                     entry.pop(key, None)
 
-            return collapsed
+            return DepartmentHistoryResponse(root=collapsed)
 
         except Exception as e:
             logger.error(f"Error in enrich_department_timeline: {e}")
@@ -1034,7 +1067,6 @@ class OrganisationService:
         """
         Fetch the active portfolio and then fetch the people assigned to the portfolio.
         """
-
         # Need to check if actual portfolio is present
         if not portfolio_id or not portfolio_id.strip():
             raise BadRequestError("Portfolio ID is required")
@@ -1144,13 +1176,25 @@ class OrganisationService:
             if results and not person_list:
                 raise InternalServerError("Failed to process persons for portfolio")
 
-            new_count = sum(1 for p in person_list if p.get("isNew"))
+            try:
+                validated_persons = [PortfolioPerson(**p) for p in person_list]
+            except Exception as e:
+                logger.error(
+                    f"enrich_person_data returned a payload that doesn't match "
+                    f"PortfolioPerson for portfolio {portfolio_id}: {e}",
+                    exc_info=True,
+                )
+                raise InternalServerError(
+                    "Failed to process persons for portfolio"
+                ) from e
 
-            return {
-                "totalCount": len(person_list),
-                "newCount": new_count,
-                "personList": person_list,
-            }
+            new_count = sum(1 for p in validated_persons if p.isNew)
+
+            return PortfolioPersonsResponse(
+                totalCount=len(validated_persons),
+                newCount=new_count,
+                personList=validated_persons,
+            )
 
         except (BadRequestError, NotFoundError):
             raise
@@ -1208,12 +1252,12 @@ class OrganisationService:
         body_start_date = Util.normalize_timestamp(body_relation.startTime)
         is_new = body_start_date == selected_date
 
-        return {
-            "id": body_id,
-            "name": name,
-            "isNew": is_new,
-            "type": minor_kind,
-        }
+        return BodyItem(
+            id=body_id,
+            name=name,
+            isNew=is_new,
+            type=minor_kind,
+        )
 
     # API: Bodies by departments
     async def bodies_by_department(self, department_id: str, selected_date: str):
@@ -1287,24 +1331,16 @@ class OrganisationService:
             raise InternalServerError(
                 f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}"
             ) from e
-            raise
-        except Exception as e:
-            logger.error(
-                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}: {e}"
-            )
-            raise InternalServerError(
-                f"bodies_by_department: failed to fetch body relations for department_id={department_id!r}"
-            )
 
         if not body_relation_list:
             logger.error(
                 f"bodies_by_department: no relations found for department_id={department_id!r}"
             )
-            return {
-                "totalBodies": 0,
-                "newBodies": 0,
-                "bodyList": [],
-            }
+            return BodiesByDepartmentResponse(
+                totalBodies=0,
+                newBodies=0,
+                bodyList=[],
+            )
 
         enrich_body_tasks = [
             self.enrich_body_item(
@@ -1343,15 +1379,13 @@ class OrganisationService:
                 f"for department_id={department_id!r}: {failures}"
             )
 
-        new_bodies = sum(1 for d in bodies if d.get("isNew"))
+        new_bodies = sum(1 for d in bodies if d.isNew)
 
-        final_result = {
-            "totalBodies": len(bodies),
-            "newBodies": new_bodies,
-            "bodyList": bodies,
-        }
-
-        return final_result
+        return BodiesByDepartmentResponse(
+            totalBodies=len(bodies),
+            newBodies=new_bodies,
+            bodyList=bodies,
+        )
 
     # API: fetch presidents with terms and gazettes sorted by date
     async def fetch_presidents(self):
@@ -1399,7 +1433,7 @@ class OrganisationService:
                 )
 
             if not president_relations:
-                return {"body": []}
+                return PresidentsResponse(body=[])
 
             # Group relations by id for multiple terms for the same president
             presidents_map = {}
@@ -1513,7 +1547,7 @@ class OrganisationService:
                 presidents_map.values(), key=get_latest_start, reverse=True
             )
 
-            return {"body": presidents_list}
+            return PresidentsResponse(body=presidents_list)
         except Exception as e:
             logger.error(f"Error fetching all presidents: {e}")
             raise InternalServerError("An unexpected error occurred") from e

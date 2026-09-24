@@ -1,10 +1,22 @@
-import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from src.enums import EntityIdEnum, RelationDirectionEnum, RelationNameEnum
 from src.exception import BadRequestError, InternalServerError, NotFoundError
 from src.models import Entity, Relation
 from src.utils import Util
+from src.models import (
+    ActivePortfolioListResponse,
+    DepartmentsByPortfolioResponse,
+    PrimeMinisterResponse,
+    CabinetFlowResponse,
+    EntityNamesResponse,
+    DepartmentHistoryResponse,
+    PortfolioPersonsResponse,
+    BodiesByDepartmentResponse,
+    PresidentsResponse,
+    DepartmentItem,
+    BodyItem,
+)
 
 
 @pytest.mark.asyncio
@@ -253,13 +265,15 @@ async def test_active_portfolio_list_valid_president_id(
             president_id=president_id, selected_date=selected_date
         )
 
-    assert result == {
-        "NoOfCabinetMinistries": 1,
-        "NoOfStateMinistries": 0,
-        "newMinistries": 0,
-        "newMinisters": 0,
-        "ministriesUnderPresident": 0,
-        "portfolioList": [
+    assert isinstance(result, ActivePortfolioListResponse)
+
+    assert result == ActivePortfolioListResponse(
+        NoOfCabinetMinistries=1,
+        NoOfStateMinistries=0,
+        newMinistries=0,
+        newMinisters=0,
+        ministriesUnderPresident=0,
+        portfolioList=[
             {
                 "id": "portfolio_123",
                 "name": "Portfolio X",
@@ -268,7 +282,7 @@ async def test_active_portfolio_list_valid_president_id(
                 "ministers": [],
             }
         ],
-    }
+    )
 
     mock_opengin_service.get_entities.assert_called_once_with(
         entity=Entity(id=president_id)
@@ -309,14 +323,16 @@ async def test_active_portfolio_list_valid_president_without_active_relations(
             president_id=president_id, selected_date=selected_date
         )
 
-    assert result == {
-        "NoOfCabinetMinistries": 0,
-        "NoOfStateMinistries": 0,
-        "newMinistries": 0,
-        "newMinisters": 0,
-        "ministriesUnderPresident": 0,
-        "portfolioList": [],
-    }
+    assert isinstance(result, ActivePortfolioListResponse)
+
+    assert result == ActivePortfolioListResponse(
+        NoOfCabinetMinistries=0,
+        NoOfStateMinistries=0,
+        newMinisters=0,
+        newMinistries=0,
+        ministriesUnderPresident=0,
+        portfolioList=[],
+    )
     mock_process_portfolio_item.assert_not_awaited()
 
 
@@ -338,7 +354,6 @@ async def test_departments_by_portfolio_id_success(
         )
     ]
 
-    # Patch enrich_department_item with AsyncMock returning the department dict
     with patch(
         "src.services.organisation_service.OrganisationService.enrich_department_item",
         new_callable=AsyncMock,
@@ -354,20 +369,20 @@ async def test_departments_by_portfolio_id_success(
             portfolio_id=portfolio_id, selected_date=selected_date
         )
 
-    assert result == {
-        "totalDepartments": 1,
-        "newDepartments": 0,
-        "departmentList": [
-            {
-                "id": "department_123",
-                "name": "Department_of_security",
-                "isNew": False,
-                "hasData": False,
-            }
+    assert isinstance(result, DepartmentsByPortfolioResponse)
+    assert result == DepartmentsByPortfolioResponse(
+        totalDepartments=1,
+        newDepartments=0,
+        departmentList=[
+            DepartmentItem(
+                id="department_123",
+                name="Department_of_security",
+                isNew=False,
+                hasData=False,
+            )
         ],
-    }
+    )
 
-    # Check fetch_relation was called correctly
     mock_opengin_service.fetch_relation.assert_called_once_with(
         entityId=portfolio_id,
         relation=Relation(
@@ -377,7 +392,6 @@ async def test_departments_by_portfolio_id_success(
         ),
     )
 
-    # Ensure enrich_department_item was called once with the correct args
     mock_enrich_department.assert_called_once_with(
         department_relation=mock_opengin_service.fetch_relation.return_value[0],
         selected_date=selected_date,
@@ -459,14 +473,16 @@ async def test_prime_minister_success(organisation_service, mock_opengin_service
             selected_date=selected_date
         )
 
-    assert result == {
-        "body": {
+    assert isinstance(result, PrimeMinisterResponse)
+
+    assert result == PrimeMinisterResponse(
+        body={
             "id": "person_123",
             "name": "Person X",
             "isNew": False,
             "term": "2022 Jul - 2024 Sep",
         }
-    }
+    )
 
     # Check fetch_relation was called correctly
     mock_opengin_service.fetch_relation.assert_called_once_with(
@@ -507,7 +523,8 @@ async def test_prime_minister_without_person_data(
             selected_date=selected_date
         )
 
-    assert result == {"body": {}}
+    assert isinstance(result, PrimeMinisterResponse)
+    assert result == PrimeMinisterResponse(body={})
 
     # Check fetch_relation was called correctly
     mock_opengin_service.fetch_relation.assert_called_with(
@@ -547,7 +564,9 @@ async def test_prime_minister_with_no_relation(
     result = await organisation_service.fetch_prime_minister(
         selected_date=selected_date
     )
-    assert result == {"body": {}}
+
+    assert isinstance(result, PrimeMinisterResponse)
+    assert result == PrimeMinisterResponse(body={})
 
 
 @pytest.mark.asyncio
@@ -669,7 +688,9 @@ async def test_department_history_timeline_success(
     )
 
     assert result is not None
-    assert isinstance(result, list)
+    assert isinstance(result, DepartmentHistoryResponse)
+
+    timeline = result.root
 
     # We expect:
     # 1. 2021-12-01 to 2022-01-01: Ministry Two - Gap (filled by President X)
@@ -683,15 +704,15 @@ async def test_department_history_timeline_success(
     # In this test, min_01 and min_02 have different names ("Ministry One" vs "Ministry Two"),
     # so Minister A won't collapse across them.
 
-    assert len(result) == 6
-    assert result[0]["minister_name"] == "President X"
-    assert result[1]["minister_name"] == "Minister A"
-    assert result[1]["ministry_name"] == "Ministry Two"
-    assert result[4]["minister_name"] == "Minister A"
-    assert result[4]["ministry_name"] == "Ministry One"
-    assert "period" in result[0]
-    assert "startTime" not in result[0]
-    assert "endTime" not in result[0]
+    assert len(timeline) == 6
+    assert timeline[0].minister_name == "President X"
+    assert timeline[1].minister_name == "Minister A"
+    assert timeline[1].ministry_name == "Ministry Two"
+    assert timeline[4].minister_name == "Minister A"
+    assert timeline[4].ministry_name == "Ministry One"
+    assert timeline[0].period is not None
+    assert not hasattr(timeline[0], "startTime")
+    assert not hasattr(timeline[0], "endTime")
 
 
 @pytest.mark.asyncio
@@ -756,10 +777,13 @@ async def test_department_history_timeline_collapsing(
         department_id=department_id
     )
 
+    assert isinstance(result, DepartmentHistoryResponse)
+    timeline = result.root
+
     # Should collapse into ONE entry because same name and same person across min_01 and min_02
-    assert len(result) == 1
-    assert result[0]["minister_name"] == "Ranil"
-    assert result[0]["period"] == "2020-01-01 - 2022-01-01"
+    assert len(timeline) == 1
+    assert timeline[0].minister_name == "Ranil"
+    assert timeline[0].period == "2020-01-01 - 2022-01-01"
 
 
 @pytest.mark.asyncio
@@ -839,7 +863,8 @@ async def test_resolve_entity_names_success(organisation_service, mock_opengin_s
     ):
         result = await organisation_service.resolve_entity_names(entity_ids)
 
-    assert result == {
+    assert isinstance(result, EntityNamesResponse)
+    assert result.root == {
         "e1": "decoded_encoded_name_1",
         "e2": "decoded_encoded_name_2",
     }
@@ -862,13 +887,16 @@ async def test_resolve_entity_names_partial_failure(
     ):
         result = await organisation_service.resolve_entity_names(entity_ids)
 
-    assert result == {"e1": "decoded_encoded_name_1"}
+    assert isinstance(result, EntityNamesResponse)
+
+    assert result.root == {"e1": "decoded_encoded_name_1"}
 
 
 @pytest.mark.asyncio
 async def test_resolve_entity_names_empty_list(organisation_service):
     result = await organisation_service.resolve_entity_names([])
-    assert result == {}
+    assert isinstance(result, EntityNamesResponse)
+    assert result.root == {}
 
 
 @pytest.mark.asyncio
@@ -967,28 +995,28 @@ async def test_department_moves_between_ministers(organisation_service):
         president_id="pres1", dates=["2024-01-01", "2024-02-01"]
     )
 
+    assert isinstance(result, CabinetFlowResponse)
+
     # 2 departments moved (dep177 and dep176)
-    assert len(result["links"]) == 3
+    assert len(result.links) == 3
 
     # total movements should equal 4
-    total_flow = sum(link["value"] for link in result["links"])
+    total_flow = sum(link.value for link in result.links)
     assert total_flow == 4
 
     all_department_ids = {
-        department_id
-        for link in result["links"]
-        for department_id in link["departmentIds"]
+        department_id for link in result.links for department_id in link.departmentIds
     }
     assert all_department_ids == {"dep175", "dep176", "dep177", "dep182"}
-    for link in result["links"]:
-        assert link["value"] == len(link["departmentIds"])
+    for link in result.links:
+        assert link.value == len(link.departmentIds)
 
     # nodes should exist
-    assert len(result["nodes"]) > 0
+    assert len(result.nodes) > 0
 
     # date statuses should be ok
-    assert result["dates"][0]["status"] == "ok"
-    assert result["dates"][1]["status"] == "ok"
+    assert result.dates[0].status == "ok"
+    assert result.dates[1].status == "ok"
 
     # dependency should be called once per date
     assert organisation_service.get_ministers_and_departments.call_count == 2
@@ -1002,12 +1030,14 @@ async def test_no_departments(organisation_service):
         "pres1", ["2024-01-01", "2024-01-02"]
     )
 
-    assert result["nodes"] == []
-    assert result["links"] == []
-    assert result["dates"][0]["status"] == "no_data"
-    assert result["dates"][0]["departmentsCount"] == 0
-    assert result["dates"][1]["status"] == "no_data"
-    assert result["dates"][1]["departmentsCount"] == 0
+    assert isinstance(result, CabinetFlowResponse)
+
+    assert result.nodes == []
+    assert result.links == []
+    assert result.dates[0].status == "no_data"
+    assert result.dates[0].departmentsCount == 0
+    assert result.dates[1].status == "no_data"
+    assert result.dates[1].departmentsCount == 0
 
 
 @pytest.mark.asyncio
@@ -1048,22 +1078,24 @@ async def test_no_departments_for_one_date(organisation_service):
         president_id="pres1", dates=["2024-01-01", "2024-02-01"]
     )
 
+    assert isinstance(result, CabinetFlowResponse)
+
     # no movement on departments since the second date is empty
-    assert len(result["links"]) == 0
+    assert len(result.links) == 0
 
     # total movements should equal 0
-    total_flow = sum(link["value"] for link in result["links"])
+    total_flow = sum(link.value for link in result.links)
     assert total_flow == 0
 
     # nodes should exist
-    assert len(result["nodes"]) > 0
-    assert len(result["nodes"]) == 4
+    assert len(result.nodes) > 0
+    assert len(result.nodes) == 4
 
     # date statuses should be ok and one date should be no_data
-    assert result["dates"][0]["status"] == "ok"
-    assert result["dates"][0]["departmentsCount"] == 4
-    assert result["dates"][1]["status"] == "no_data"
-    assert result["dates"][1]["departmentsCount"] == 0
+    assert result.dates[0].status == "ok"
+    assert result.dates[0].departmentsCount == 4
+    assert result.dates[1].status == "no_data"
+    assert result.dates[1].departmentsCount == 0
 
     # dependency should be called once per date
     assert organisation_service.get_ministers_and_departments.call_count == 2
@@ -1110,26 +1142,26 @@ async def test_bridge_across_empty_middle_date(organisation_service):
         dates=["2024-01-01", "2024-02-01", "2024-03-01"],
     )
 
-    assert result["dates"][0]["status"] == "ok"
-    assert result["dates"][0]["departmentsCount"] == 4
-    assert result["dates"][1]["status"] == "no_data"
-    assert result["dates"][1]["departmentsCount"] == 0
-    assert result["dates"][2]["status"] == "ok"
-    assert result["dates"][2]["departmentsCount"] == 4
+    assert isinstance(result, CabinetFlowResponse)
+
+    assert result.dates[0].status == "ok"
+    assert result.dates[0].departmentsCount == 4
+    assert result.dates[1].status == "no_data"
+    assert result.dates[1].departmentsCount == 0
+    assert result.dates[2].status == "ok"
+    assert result.dates[2].departmentsCount == 4
 
     # links bridge across the empty middle date (same as two consecutive ok dates)
-    assert len(result["links"]) == 3
-    total_flow = sum(link["value"] for link in result["links"])
+    assert len(result.links) == 3
+    total_flow = sum(link.value for link in result.links)
     assert total_flow == 4
 
     all_department_ids = {
-        department_id
-        for link in result["links"]
-        for department_id in link["departmentIds"]
+        department_id for link in result.links for department_id in link.departmentIds
     }
     assert all_department_ids == {"dep175", "dep176", "dep177", "dep182"}
 
-    node_times = {node["time"] for node in result["nodes"]}
+    node_times = {node.time for node in result.nodes}
     assert node_times == {"2024-01-01", "2024-03-01"}
 
     assert organisation_service.get_ministers_and_departments.call_count == 3
@@ -1156,8 +1188,10 @@ async def test_one_date_failure(organisation_service):
         "pres1", ["2024-01-01", "2024-02-01"]
     )
 
-    assert result["dates"][0]["status"] == "error"
-    assert result["dates"][1]["status"] == "ok"
+    assert isinstance(result, CabinetFlowResponse)
+
+    assert result.dates[0].status == "error"
+    assert result.dates[1].status == "ok"
 
 
 @pytest.mark.asyncio
@@ -1170,8 +1204,10 @@ async def test_invalid_response_type(organisation_service):
         "pres1", ["2024-01-01", "2024-01-02"]
     )
 
-    assert result["dates"][0]["status"] == "error"
-    assert result["dates"][1]["status"] == "error"
+    assert isinstance(result, CabinetFlowResponse)
+
+    assert result.dates[0].status == "error"
+    assert result.dates[1].status == "error"
 
 
 @pytest.mark.asyncio
@@ -1211,21 +1247,23 @@ async def test_multiple_departments_aggregation(organisation_service):
         president_id="pres1", dates=["2024-01-01", "2024-02-01"]
     )
 
+    assert isinstance(result, CabinetFlowResponse)
+
     # There should be exactly one link (min1 -> min2)
-    assert len(result["links"]) == 1
+    assert len(result.links) == 1
 
     # The value should be 2 because two departments moved along this path
-    link = result["links"][0]
-    assert link["value"] == 2
-    assert set(link["departmentIds"]) == {"dep1", "dep2"}
+    link = result.links[0]
+    assert link.value == 2
+    assert set(link.departmentIds) == {"dep1", "dep2"}
 
     # Nodes should exist for both ministers
-    node_ids = {node["id"] for node in result["nodes"]}
+    node_ids = {node.id for node in result.nodes}
     assert node_ids == {"min1", "min2"}
 
     # Dates statuses should both be "ok"
-    assert result["dates"][0]["status"] == "ok"
-    assert result["dates"][1]["status"] == "ok"
+    assert result.dates[0].status == "ok"
+    assert result.dates[1].status == "ok"
 
     # Dependency should be called once per date
     assert organisation_service.get_ministers_and_departments.call_count == 2
@@ -1256,29 +1294,30 @@ async def test_fetch_presidents_success(organisation_service, mock_opengin_servi
     ):
         result = await organisation_service.fetch_presidents()
 
-        presidents = result["body"]
+        assert isinstance(result, PresidentsResponse)
+        presidents = result.body
         assert len(presidents) == 1
         president = presidents[0]
-        assert president["id"] == "p1"
-        assert president["name"] == "President One"
-        assert len(president["tenureList"]) == 2
+        assert president.id == "p1"
+        assert president.name == "President One"
+        assert len(president.tenureList) == 2
 
         # Check gazettes are inside the first term (2020 term)
-        term1_gazettes = president["tenureList"][0]["gazetteList"]
+        term1_gazettes = president.tenureList[0].gazetteList
         assert len(term1_gazettes) == 1
-        assert term1_gazettes[0]["date"] == "2020-05-01"
-        assert isinstance(term1_gazettes[0]["idList"], list)
-        assert term1_gazettes[0]["idList"] == ["org_gzt"]
+        assert term1_gazettes[0].date == "2020-05-01"
+        assert isinstance(term1_gazettes[0].idList, list)
+        assert term1_gazettes[0].idList == ["org_gzt"]
 
         # Check gazettes are inside the second term (2022 term)
-        term2_gazettes = president["tenureList"][1]["gazetteList"]
+        term2_gazettes = president.tenureList[1].gazetteList
         assert len(term2_gazettes) == 1
-        assert term2_gazettes[0]["date"] == "2022-08-01"
-        assert isinstance(term2_gazettes[0]["idList"], list)
-        assert term2_gazettes[0]["idList"] == ["per_gzt"]
+        assert term2_gazettes[0].date == "2022-08-01"
+        assert isinstance(term2_gazettes[0].idList, list)
+        assert term2_gazettes[0].idList == ["per_gzt"]
 
         # Verify JSON serializability of the entire response
-        json_output = json.dumps(result)
+        json_output = result.model_dump_json()
         assert isinstance(json_output, str)
 
 
@@ -1288,7 +1327,8 @@ async def test_fetch_presidents_no_data(organisation_service, mock_opengin_servi
 
     result = await organisation_service.fetch_presidents()
 
-    assert result == {"body": []}
+    assert isinstance(result, PresidentsResponse)
+    assert result.body == []
 
 
 @pytest.mark.asyncio
@@ -1309,10 +1349,11 @@ async def test_fetch_presidents_no_gazettes(organisation_service, mock_opengin_s
     ):
         result = await organisation_service.fetch_presidents()
 
-        presidents = result["body"]
+        assert isinstance(result, PresidentsResponse)
+        presidents = result.body
         assert len(presidents) == 1
-        assert presidents[0]["name"] == "President One"
-        assert presidents[0]["tenureList"][0]["gazetteList"] == []
+        assert presidents[0].name == "President One"
+        assert presidents[0].tenureList[0].gazetteList == []
 
 
 @pytest.mark.asyncio
@@ -1353,11 +1394,12 @@ async def test_fetch_presidents_sorting_with_multiple_terms(
     ):
         result = await organisation_service.fetch_presidents()
 
-        presidents = result["body"]
+        assert isinstance(result, PresidentsResponse)
+        presidents = result.body
 
         # p_multi should be first because 2022 > 2010
-        assert presidents[0]["id"] == "p_multi"
-        assert presidents[1]["id"] == "p_old"
+        assert presidents[0].id == "p_multi"
+        assert presidents[1].id == "p_old"
 
 
 @pytest.mark.asyncio
@@ -1378,7 +1420,6 @@ async def test_fetch_presidents_gazette_on_last_day_of_tenure_is_included(
     A gazette published on the EXACT endDate of a tenure must be included
     in that tenure's gazetteList.
     """
-    # p1 has a single tenure ending on 2022-01-01
     mock_opengin_service.fetch_relation.return_value = [
         Relation(
             relatedEntityId="p1",
@@ -1387,7 +1428,6 @@ async def test_fetch_presidents_gazette_on_last_day_of_tenure_is_included(
         ),
     ]
 
-    # The gazette is published on the exact last day of p1's tenure
     mock_opengin_service.get_entities.side_effect = [
         [
             Entity(created="2022-01-01T00:00:00Z", name="last_day_gazette")
@@ -1402,20 +1442,21 @@ async def test_fetch_presidents_gazette_on_last_day_of_tenure_is_included(
     ):
         result = await organisation_service.fetch_presidents()
 
-        presidents = result["body"]
+        assert isinstance(result, PresidentsResponse)
+        presidents = result.body
         assert len(presidents) == 1
         president = presidents[0]
-        assert president["id"] == "p1"
-        assert president["name"] == "President One"
-        assert len(president["tenureList"]) == 1
+        assert president.id == "p1"
+        assert president.name == "President One"
+        assert len(president.tenureList) == 1
 
-        tenure = president["tenureList"][0]
-        assert tenure["endDate"] == "2022-01-01"
+        tenure = president.tenureList[0]
+        assert tenure.endDate == "2022-01-01"
 
         # The gazette on the exact last day must be INCLUDED, not dropped
-        assert len(tenure["gazetteList"]) == 1
-        assert tenure["gazetteList"][0]["date"] == "2022-01-01"
-        assert "last_day_gazette" in tenure["gazetteList"][0]["idList"]
+        assert len(tenure.gazetteList) == 1
+        assert tenure.gazetteList[0].date == "2022-01-01"
+        assert "last_day_gazette" in tenure.gazetteList[0].idList
 
 
 @pytest.mark.asyncio
@@ -1450,12 +1491,11 @@ async def test_enrich_body_item_is_new(
             body_relation=body_relation, selected_date=selected_date
         )
 
-    assert result == {
-        "id": "body_123",
-        "name": "decoded_name",
-        "isNew": expected_is_new,
-        "type": "Council",
-    }
+    assert isinstance(result, BodyItem)
+    assert result.id == "body_123"
+    assert result.name == "decoded_name"
+    assert result.isNew == expected_is_new
+    assert result.type == "Council"
 
     mock_opengin_service.get_entities.assert_called_once_with(
         entity=Entity(id="body_123")
@@ -1485,7 +1525,7 @@ async def test_enrich_body_item_empty_minor_kind(
             body_relation=body_relation, selected_date=selected_date
         )
 
-    assert result["type"] == ""
+    assert result.type == ""
 
 
 @pytest.mark.asyncio
@@ -1706,12 +1746,10 @@ async def test_bodies_by_department_no_relations_found(
     result = await organisation_service.bodies_by_department(
         department_id="department_123", selected_date="2023-10-27"
     )
-
-    assert result == {
-        "totalBodies": 0,
-        "newBodies": 0,
-        "bodyList": [],
-    }
+    assert isinstance(result, BodiesByDepartmentResponse)
+    assert result.totalBodies == 0
+    assert result.newBodies == 0
+    assert result.bodyList == []
 
 
 @pytest.mark.asyncio
@@ -1744,42 +1782,35 @@ async def test_bodies_by_department_success(organisation_service, mock_opengin_s
         new_callable=AsyncMock,
     ) as mock_enrich_body:
         mock_enrich_body.side_effect = [
-            {
-                "id": "body_1",
-                "name": "Body 1 Name",
-                "isNew": True,
-                "type": "Council",
-            },
-            {
-                "id": "body_2",
-                "name": "Body 2 Name",
-                "isNew": False,
-                "type": "",
-            },
+            BodyItem(
+                id="body_1",
+                name="Body 1 Name",
+                isNew=True,
+                type="Council",
+            ),
+            BodyItem(
+                id="body_2",
+                name="Body 2 Name",
+                isNew=False,
+                type="",
+            ),
         ]
 
         result = await organisation_service.bodies_by_department(
             department_id=department_id, selected_date=selected_date
         )
 
-    assert result == {
-        "totalBodies": 2,
-        "newBodies": 1,
-        "bodyList": [
-            {
-                "id": "body_1",
-                "name": "Body 1 Name",
-                "isNew": True,
-                "type": "Council",
-            },
-            {
-                "id": "body_2",
-                "name": "Body 2 Name",
-                "isNew": False,
-                "type": "",
-            },
-        ],
-    }
+    assert isinstance(result, BodiesByDepartmentResponse)
+    assert result.totalBodies == 2
+    assert result.newBodies == 1
+    assert result.bodyList[0].id == "body_1"
+    assert result.bodyList[0].name == "Body 1 Name"
+    assert result.bodyList[0].isNew is True
+    assert result.bodyList[0].type == "Council"
+    assert result.bodyList[1].id == "body_2"
+    assert result.bodyList[1].name == "Body 2 Name"
+    assert result.bodyList[1].isNew is False
+    assert result.bodyList[1].type == ""
 
     mock_opengin_service.get_entities.assert_called_once_with(
         entity=Entity(id=department_id)
@@ -1827,12 +1858,12 @@ async def test_bodies_by_department_partial_enrichment_failure(
         new_callable=AsyncMock,
     ) as mock_enrich_body:
         mock_enrich_body.side_effect = [
-            {
-                "id": "body_1",
-                "name": "Body 1 Name",
-                "isNew": True,
-                "type": "Council",
-            },
+            BodyItem(
+                id="body_1",
+                name="Body 1 Name",
+                isNew=True,
+                type="Council",
+            ),
             InternalServerError("enrichment failed for body_2"),
         ]
 
@@ -1840,18 +1871,13 @@ async def test_bodies_by_department_partial_enrichment_failure(
             department_id=department_id, selected_date=selected_date
         )
 
-    assert result == {
-        "totalBodies": 1,
-        "newBodies": 1,
-        "bodyList": [
-            {
-                "id": "body_1",
-                "name": "Body 1 Name",
-                "isNew": True,
-                "type": "Council",
-            }
-        ],
-    }
+    assert isinstance(result, BodiesByDepartmentResponse)
+    assert result.totalBodies == 1
+    assert result.newBodies == 1
+    assert result.bodyList[0].id == "body_1"
+    assert result.bodyList[0].name == "Body 1 Name"
+    assert result.bodyList[0].isNew is True
+    assert result.bodyList[0].type == "Council"
 
 
 @pytest.mark.asyncio
@@ -1919,16 +1945,21 @@ async def test_bodies_by_department_passes_normalized_date_to_enrich(
         "src.services.organisation_service.OrganisationService.enrich_body_item",
         new_callable=AsyncMock,
     ) as mock_enrich_body:
-        mock_enrich_body.return_value = {
-            "id": "body_1",
-            "name": "Body 1 Name",
-            "isNew": True,
-            "type": "Council",
-        }
+        mock_enrich_body.return_value = BodyItem(
+            id="body_1",
+            name="Body 1 Name",
+            isNew=True,
+            type="Council",
+        )
 
-        await organisation_service.bodies_by_department(
+        result = await organisation_service.bodies_by_department(
             department_id=department_id, selected_date=selected_date
         )
+
+    assert result.bodyList[0].id == "body_1"
+    assert result.bodyList[0].name == "Body 1 Name"
+    assert result.bodyList[0].isNew is True
+    assert result.bodyList[0].type == "Council"
 
     mock_enrich_body.assert_called_once_with(
         body_relation=body_relation, selected_date=normalized_date
@@ -2089,18 +2120,14 @@ async def test_get_persons_by_portfolio_appointed_minister_success(
             portfolio_id=portfolio_id, selected_date=selected_date
         )
 
-    assert result == {
-        "totalCount": 1,
-        "newCount": 0,
-        "personList": [
-            {
-                "id": "cit_minister_1",
-                "name": "Test Minister",
-                "isNew": False,
-                "isPresident": False,
-            }
-        ],
-    }
+    assert isinstance(result, PortfolioPersonsResponse)
+    assert result.totalCount == 1
+    assert result.newCount == 0
+    assert len(result.personList) == 1
+    assert result.personList[0].id == "cit_minister_1"
+    assert result.personList[0].name == "Test Minister"
+    assert result.personList[0].isNew is False
+    assert result.personList[0].isPresident is False
 
     mock_enrich_person.assert_called_once_with(
         person_relation=minister_relation,
@@ -2158,7 +2185,8 @@ async def test_get_persons_by_portfolio_minister_who_is_president_flagged_true(
             portfolio_id=portfolio_id, selected_date=selected_date
         )
 
-    assert result["personList"][0]["isPresident"] is True
+    assert isinstance(result, PortfolioPersonsResponse)
+    assert result.personList[0].isPresident is True
 
 
 @pytest.mark.asyncio
@@ -2208,8 +2236,9 @@ async def test_get_persons_by_portfolio_new_minister_counted(
             portfolio_id=portfolio_id, selected_date=selected_date
         )
 
-    assert result["newCount"] == 1
-    assert result["totalCount"] == 1
+    assert isinstance(result, PortfolioPersonsResponse)
+    assert result.newCount == 1
+    assert result.totalCount == 1
 
 
 @pytest.mark.asyncio
@@ -2259,10 +2288,10 @@ async def test_get_persons_by_portfolio_no_minister_falls_back_to_president(
         result = await organisation_service.get_persons_by_portfolio(
             portfolio_id=portfolio_id, selected_date=selected_date
         )
-
-    assert result["totalCount"] == 1
-    assert result["personList"][0]["id"] == president_id
-    assert result["personList"][0]["isPresident"] is True
+    assert isinstance(result, PortfolioPersonsResponse)
+    assert result.totalCount == 1
+    assert result.personList[0].id == president_id
+    assert result.personList[0].isPresident is True
 
     mock_enrich_person.assert_called_once_with(
         president_id=president_id,
@@ -2330,8 +2359,9 @@ async def test_get_persons_by_portfolio_partial_enrichment_failure_is_skipped(
             portfolio_id=portfolio_id, selected_date=selected_date
         )
 
-    assert result["totalCount"] == 1
-    assert result["personList"][0]["id"] == "cit_ok"
+    assert isinstance(result, PortfolioPersonsResponse)
+    assert result.totalCount == 1
+    assert result.personList[0].id == "cit_ok"
 
 
 @pytest.mark.asyncio

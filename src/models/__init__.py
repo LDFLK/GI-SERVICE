@@ -1,10 +1,9 @@
 from .data_requestbody import DataCatalogRequest, DatasetYearsRequest
-from .organisation_schemas import (
+from .opengin_schemas import (
     AttributeFilterRecord,
     AttributeFilterRecords,
     Category,
     Dataset,
-    Date,
     Entity,
     Kind,
     Label,
@@ -12,6 +11,23 @@ from .organisation_schemas import (
 )
 from .person_schemas import PersonResponse, PersonSource
 from .search_schemas import SearchResponse, SearchResult
+from .organisation_schemas import (
+    PortfolioPersonsResponse,
+    Person,
+    PortfolioPerson,
+    BodyItem,
+    BodiesByDepartmentResponse,
+    DepartmentItem,
+    DepartmentsByPortfolioResponse,
+    PortfolioItem,
+    ActivePortfolioListResponse,
+    PrimeMinisterResponse,
+    EntityNamesResponse,
+    DepartmentHistoryResponse,
+    PresidentsResponse,
+    CabinetFlowResponse,
+)
+from .common_schemas import Date
 
 __all__ = [
     "AttributeFilterRecord",
@@ -29,4 +45,18 @@ __all__ = [
     "Relation",
     "SearchResponse",
     "SearchResult",
+    "Person",
+    "PortfolioPerson",
+    "PortfolioPersonsResponse",
+    "BodyItem",
+    "BodiesByDepartmentResponse",
+    "DepartmentItem",
+    "DepartmentsByPortfolioResponse",
+    "PortfolioItem",
+    "ActivePortfolioListResponse",
+    "PrimeMinisterResponse",
+    "EntityNamesResponse",
+    "DepartmentHistoryResponse",
+    "PresidentsResponse",
+    "CabinetFlowResponse",
 ]

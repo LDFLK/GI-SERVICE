@@ -1,5 +1,16 @@
 from fastapi import APIRouter, Depends, Query, Body, Path
-from src.models import Date
+from src.models import (
+    Date,
+    PortfolioPersonsResponse,
+    BodiesByDepartmentResponse,
+    ActivePortfolioListResponse,
+    PrimeMinisterResponse,
+    EntityNamesResponse,
+    DepartmentHistoryResponse,
+    PresidentsResponse,
+    CabinetFlowResponse,
+    DepartmentsByPortfolioResponse,
+)
 from src.services import OpenGINService, OrganisationService
 from typing import Sequence
 
@@ -15,6 +26,7 @@ def get_organisation_service():
     "/active-portfolio-list",
     summary="Get active portfolio list.",
     description="Returns a list of portfolios under a given president and a given date.",
+    response_model=ActivePortfolioListResponse,
 )
 async def active_portfolio_list(
     presidentId: str = Query(..., description="ID of the president"),
@@ -29,6 +41,7 @@ async def active_portfolio_list(
     "/departments-by-portfolio/{portfolio_id}",
     summary="Get active departments for a portfolio.",
     description="Returns a list of departments under a given portfolio and a given date.",
+    response_model=DepartmentsByPortfolioResponse,
 )
 async def departments_by_portfolio(
     portfolio_id: str = Path(..., description="ID of the portfolio"),
@@ -41,7 +54,7 @@ async def departments_by_portfolio(
     return service_response
 
 
-@router.post("/prime-minister")
+@router.post("/prime-minister", response_model=PrimeMinisterResponse)
 async def prime_minister(
     body: Date = Body(...),
     service: OrganisationService = Depends(get_organisation_service),
@@ -50,7 +63,10 @@ async def prime_minister(
     return service_response
 
 
-@router.post("/cabinet-flow/{president_id}")
+@router.post(
+    "/cabinet-flow/{president_id}",
+    response_model=CabinetFlowResponse,
+)
 async def cabinet_flow(
     president_id: str = Path(..., description="ID of the president"),
     dates: Sequence[str] = Body(...),
@@ -66,6 +82,7 @@ async def cabinet_flow(
     "/entity-names",
     summary="Resolve entity IDs to display names.",
     description="Returns a dictionary mapping each entity ID to its decoded display name.",
+    response_model=EntityNamesResponse,
 )
 async def entity_names(
     entity_ids: list[str] = Body(
@@ -82,6 +99,7 @@ async def entity_names(
     "/department-history/{department_id}",
     summary="Get department history timeline.",
     description="Returns a timeline of a department including ministry relations and ministers.",
+    response_model=DepartmentHistoryResponse,
 )
 async def department_history_timeline(
     department_id: str = Path(..., description="ID of the department"),
@@ -97,6 +115,7 @@ async def department_history_timeline(
     "/portfolio/{portfolio_id}/person",
     summary="Get persons assigned to a portfolio on a given date.",
     description="Returns the enriched list of persons appointed to a given portfolio as of a specific date, along with precomputed summary counts and president/new-appointment flags.",
+    response_model=PortfolioPersonsResponse,
 )
 async def portfolio_by_person(
     portfolio_id: str = Path(..., description="ID of the portfolio"),
@@ -112,6 +131,7 @@ async def portfolio_by_person(
     "/department/{department_id}/bodies",
     summary="Get active bodies for a department.",
     description="Returns a list of bodies under a given department and a given date.",
+    response_model=BodiesByDepartmentResponse,
 )
 async def bodies_by_department(
     department_id: str = Path(..., description="ID of the department"),
@@ -128,6 +148,7 @@ async def bodies_by_department(
     "/presidents",
     summary="Get all presidents with their term dates and gazettes sorted by date.",
     description="Returns a sorted list of presidents with their term dates and corresponding gazette ids and dates.",
+    response_model=PresidentsResponse,
 )
 async def presidents(service: OrganisationService = Depends(get_organisation_service)):
     service_response = await service.fetch_presidents()
