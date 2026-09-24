@@ -11,7 +11,7 @@ from src.exception import BadRequestError, InternalServerError, NotFoundError
 from src.models import (
     Entity,
     Relation,
-    Person,
+    PortfolioPerson,
     PortfolioPersonsResponse,
     BodiesByDepartmentResponse,
     BodyItem,
@@ -818,7 +818,9 @@ class OrganisationService:
                 entity_map[result[0].id] = result[0]
         return entity_map
 
-    async def resolve_entity_names(self, entity_ids: Sequence[str]) -> dict[str, str]:
+    async def resolve_entity_names(
+        self, entity_ids: Sequence[str]
+    ) -> EntityNamesResponse:
         """Resolve entity IDs to decoded display names."""
         if not entity_ids:
             return EntityNamesResponse(root={})
@@ -1175,11 +1177,11 @@ class OrganisationService:
                 raise InternalServerError("Failed to process persons for portfolio")
 
             try:
-                validated_persons = [Person(**p) for p in person_list]
+                validated_persons = [PortfolioPerson(**p) for p in person_list]
             except Exception as e:
                 logger.error(
                     f"enrich_person_data returned a payload that doesn't match "
-                    f"Person for portfolio {portfolio_id}: {e}",
+                    f"PortfolioPerson for portfolio {portfolio_id}: {e}",
                     exc_info=True,
                 )
                 raise InternalServerError(

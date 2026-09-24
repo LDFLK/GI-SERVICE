@@ -3,15 +3,13 @@ from typing import List
 from pydantic import BaseModel, ConfigDict, Field, field_validator, RootModel
 
 
-class BasePersonItem(BaseModel):
-    """Shared identity fields for any person-like entity (citizen, minister, PM, president)."""
+class Person(BaseModel):
+    """Shared identity fields for any person"""
 
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="Person ID", examples=["cit-xx"])
-    name: str = Field(
-        ..., description="Fully resolved, human-readable name", examples=["Test Person"]
-    )
+    name: str = Field(..., description="Name of the person", examples=["Test Person"])
     isNew: bool = Field(
         ...,
         description="True if start_time falls on the queried date",
@@ -19,24 +17,26 @@ class BasePersonItem(BaseModel):
     )
 
 
-class Person(BasePersonItem):
+class PortfolioPerson(Person):
     """Person item with presidency indicator, for portfolios / cabinets."""
 
     isPresident: bool = Field(
         ...,
-        description="True if this person is the currently selected president",
+        description="True if this person is the president",
         examples=[False],
     )
 
 
 class PortfolioPersonsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     totalCount: int = Field(
         ..., ge=0, description="Total number of People' in Portfolio", examples=[1]
     )
     newCount: int = Field(
         ..., ge=0, description="Count of persons where is_new is true", examples=[0]
     )
-    personList: List[Person] = Field(default_factory=list)
+    personList: List[PortfolioPerson] = Field(default_factory=list)
 
 
 class BodyItem(BaseModel):
@@ -127,7 +127,7 @@ class PortfolioItem(BaseModel):
         description="True if this portfolio is new as of the selected date",
         examples=[False],
     )
-    ministers: List[Person] = Field(default_factory=list)
+    ministers: List[PortfolioPerson] = Field(default_factory=list)
 
 
 class ActivePortfolioListResponse(BaseModel):
@@ -143,7 +143,7 @@ class ActivePortfolioListResponse(BaseModel):
     portfolioList: List[PortfolioItem] = Field(default_factory=list)
 
 
-class PrimeMinisterItem(BasePersonItem):
+class PrimeMinister(Person):
     """Matches enrich_person_data output after isPresident is dropped and term is added."""
 
     term: str = Field(
@@ -156,7 +156,7 @@ class PrimeMinisterResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    body: PrimeMinisterItem | dict = Field(
+    body: PrimeMinister | dict = Field(
         ..., description="Prime minister details, or {} if none found for the date"
     )
 

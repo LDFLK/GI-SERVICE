@@ -14,6 +14,7 @@ from .search_schemas import SearchResponse, SearchResult
 from .organisation_schemas import (
     PortfolioPersonsResponse,
     Person,
+    PortfolioPerson,
     BodyItem,
     BodiesByDepartmentResponse,
     DepartmentItem,
@@ -45,6 +46,7 @@ __all__ = [
     "SearchResponse",
     "SearchResult",
     "Person",
+    "PortfolioPerson",
     "PortfolioPersonsResponse",
     "BodyItem",
     "BodiesByDepartmentResponse",
