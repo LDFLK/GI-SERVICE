@@ -1,6 +1,15 @@
 from fastapi.param_functions import Depends, Path
 from fastapi import APIRouter
-from src.models import DataCatalogRequest, DatasetYearsRequest
+from src.models import (
+    DataCatalogRequest,
+    DatasetYearsRequest,
+    DataCatalogResponse,
+    DatasetAvailableYearsResponse,
+    DataAttributesResponse,
+    DataAttributesNotFoundResponse,
+    DatasetRootItem,
+    DatasetNotFoundResponse,
+)
 from src.services import DataService, OpenGINService
 
 router = APIRouter(prefix="/v1/data", tags=["Data"])
@@ -15,6 +24,7 @@ def get_data_service():
     "/data-catalog",
     summary="Get all parent/child categories and datasets.",
     description="Returns parent/child categories and datasets based on the given category id lists. If the list is empty, it returns the top level parent categories. If the list is not empty, it returns the categories/datasets in the next level for the given categories. The API traverses only one level.",
+    response_model=DataCatalogResponse,
 )
 async def get_data_catalog(
     request: DataCatalogRequest, service: DataService = Depends(get_data_service)
@@ -27,6 +37,7 @@ async def get_data_catalog(
     "/datasets/years",
     summary="Get all the dataset available years for the given datasets.",
     description="Returns the list of years and datasetIds for available datasets with dataset name.",
+    response_model=DatasetAvailableYearsResponse,
 )
 async def get_dataset_available_years(
     request: DatasetYearsRequest, service: DataService = Depends(get_data_service)
@@ -39,6 +50,7 @@ async def get_dataset_available_years(
     "/datasets/{datasetId}/data",
     summary="Get the data attributes for the given dataset.",
     description="Returns the data attributes for the given dataset",
+    response_model=DataAttributesResponse | DataAttributesNotFoundResponse,
 )
 async def get_data_attributes(
     datasetId: str = Path(..., description="The ID of the dataset"),
@@ -52,6 +64,7 @@ async def get_data_attributes(
     "/datasets/{datasetId}/root",
     summary="Get the root of the given dataset.",
     description="Returns the root of the given dataset.",
+    response_model=DatasetRootItem | DatasetNotFoundResponse,
 )
 async def get_dataset_root(
     datasetId: str = Path(..., description="The ID of the dataset"),

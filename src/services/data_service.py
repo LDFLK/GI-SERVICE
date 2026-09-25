@@ -8,7 +8,19 @@ from src.enums import (
     RelationDirectionEnum,
 )
 from src.exception import BadRequestError, InternalServerError, NotFoundError
-from src.models import Entity, Kind, Relation
+from src.models import (
+    Entity,
+    Kind,
+    Relation,
+    DataCatalogResponse,
+    DatasetAvailableYearsResponse,
+    DataAttributesNotFoundResponse,
+    DataAttributesResponse,
+    DatasetRootItem,
+    DatasetCategoriesResponse,
+    DatasetInfo,
+)
+
 from aiohttp import ClientSession
 from src.utils import Util, http_client
 
@@ -186,7 +198,7 @@ class DataService:
                     categories_dictionary, "name", "categoryIds"
                 )
 
-                return {"categories": categories, "datasets": []}
+                return DataCatalogResponse(categories=categories, datasets=[])
 
             else:
                 category_relation_instance = Relation(
@@ -246,7 +258,7 @@ class DataService:
                     dataset_dictionary, "name", "datasetIds"
                 )
 
-                return {"categories": categories, "datasets": datasets}
+                return DataCatalogResponse(categories=categories, datasets=datasets)
 
         except BadRequestError:
             raise
@@ -309,7 +321,9 @@ class DataService:
             # sort the list by years
             dataset_years.sort(key=lambda x: x["year"])
 
-            return {"name": actual_name_title_case, "years": dataset_years}
+            return DatasetAvailableYearsResponse(
+                name=actual_name_title_case, years=dataset_years
+            )
 
         except (BadRequestError, NotFoundError):
             raise
@@ -355,7 +369,9 @@ class DataService:
             # Extract dataset information
             if not dataset_entity_result or not dataset_relations_result:
                 logger.error(f"Dataset or its relations not found for id: {dataset_id}")
-                return {"message": "Dataset or its relations not found"}
+                return DataAttributesNotFoundResponse(
+                    message="Dataset or its relations not found"
+                ).model_dump()
 
             dataset_first_datum = dataset_entity_result[0]
             dataset_name = Util.decode_protobuf_attribute_name(dataset_first_datum.name)
@@ -372,7 +388,10 @@ class DataService:
                 attribute_data_out={"data": attributes}
             )
 
-            return formatted_attributes
+            return DataAttributesResponse(
+                type=formatted_attributes["type"],
+                data=formatted_attributes["data"],
+            )
 
         except (BadRequestError, NotFoundError):
             raise
@@ -428,13 +447,11 @@ class DataService:
             root_entity_name = Util.decode_protobuf_attribute_name(root_entity.name)
 
             # arrange the response
-            root_entity_data = {
-                "id": root_entity.id,
-                "name": root_entity_name,
-                "type": root_entity.kind.minor,
-            }
-
-            return root_entity_data
+            return DatasetRootItem(
+                id=root_entity.id,
+                name=root_entity_name,
+                type=root_entity.kind.minor,
+            )
 
         except (BadRequestError, NotFoundError):
             raise
@@ -494,14 +511,14 @@ class DataService:
             # Traverse up and collect all categories
             categories = await self._collect_category_hierarchy(category_id)
 
-            return {
-                "dataset": {
-                    "id": dataset_id,
-                    "name": dataset_name,
-                    "kind": {"major": dataset.kind.major, "minor": dataset.kind.minor},
-                },
-                "categories": categories,
-            }
+            return DatasetCategoriesResponse(
+                dataset=DatasetInfo(
+                    id=dataset_id,
+                    name=dataset_name,
+                    kind={"major": dataset.kind.major, "minor": dataset.kind.minor},
+                ),
+                categories=categories,
+            )
 
         except (BadRequestError, NotFoundError):
             raise
