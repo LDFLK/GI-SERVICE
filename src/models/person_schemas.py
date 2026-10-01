@@ -47,7 +47,7 @@ class MinistryHistoryItem(BaseModel):
 
 
 class PersonHistoryResponse(BaseModel):
-    """Flat response — no envelope, matches actual return shape (not the docstring's body wrapper)."""
+    """Person history: ministry appointments plus summary counts."""
 
     model_config = ConfigDict(extra="forbid")
 
