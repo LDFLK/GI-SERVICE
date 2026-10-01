@@ -45,7 +45,6 @@ __all__ = [
     "Relation",
     "SearchResponse",
     "SearchResult",
-<<<<<<< HEAD
     "Person",
     "PortfolioPerson",
     "PortfolioPersonsResponse",
@@ -60,7 +59,5 @@ __all__ = [
     "DepartmentHistoryResponse",
     "PresidentsResponse",
     "CabinetFlowResponse",
-=======
     "PersonHistoryResponse",
->>>>>>> 6a921bb (feat: added pydantic binding validation for person history api)
 ]
