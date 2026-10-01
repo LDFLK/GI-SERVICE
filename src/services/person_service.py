@@ -140,7 +140,7 @@ class PersonService:
 
     async def enrich_history_item(
         self, relation: Relation, president_relations: list[Relation]
-    ):
+    ) -> PersonResponse:
         try:
             ministry_data = await self.opengin_service.get_entities(
                 Entity(id=relation.relatedEntityId)
