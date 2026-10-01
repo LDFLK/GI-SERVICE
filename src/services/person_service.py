@@ -8,7 +8,7 @@ from src.enums import (
     RelationNameEnum,
 )
 from src.exception import BadRequestError, InternalServerError, NotFoundError
-from src.models import Entity, PersonResponse, Relation
+from src.models import Entity, PersonResponse, Relation, PersonHistoryResponse
 from src.utils import Util, http_client
 
 logger = logging.getLogger(__name__)
@@ -55,27 +55,14 @@ class PersonService:
 
         return False
 
-    async def fetch_person_history(self, person_id: str):
+    async def fetch_person_history(self, person_id: str) -> PersonHistoryResponse:
         """
         Fetch person history by person id
 
         :param person_id: Person Id
-
-        output format:
-        {
-            "body": {
-               "ministry_history": [
-                    {
-                        "id": "",
-                        "name": "",
-                        "term": "",
-                        "is_president": ""
-                    }
-                ]
-                "ministries_worked_at": "",
-                "worked_as_president": ""
-            }
-        }
+        :return: PersonHistoryResponse with the person's ministry history
+            (latest first), the number of ministries worked at and the
+            number of times worked as president
         """
         try:
             if not person_id or not person_id.strip():
@@ -137,11 +124,11 @@ class PersonService:
                 item.pop("start_time", None)
                 item.pop("end_time", None)
 
-            final_result = {
-                "ministry_history": ministry_history,
-                "ministries_worked_at": len(ministry_history),
-                "worked_as_president": len(president_relations),
-            }
+            final_result = PersonHistoryResponse(
+                ministry_history=ministry_history,
+                ministries_worked_at=len(ministry_history),
+                worked_as_president=len(president_relations),
+            )
 
             return final_result
 
@@ -153,7 +140,7 @@ class PersonService:
 
     async def enrich_history_item(
         self, relation: Relation, president_relations: list[Relation]
-    ):
+    ) -> PersonResponse:
         try:
             ministry_data = await self.opengin_service.get_entities(
                 Entity(id=relation.relatedEntityId)

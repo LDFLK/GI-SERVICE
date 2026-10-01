@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Path
+from src.models import PersonHistoryResponse, PersonResponse
 from src.services import OpenGINService, PersonService
 
 router = APIRouter(prefix="/v1/person", tags=["Person"])
@@ -13,6 +14,7 @@ def get_person_service():
     "/person-history/{person_id}",
     summary="Get person history.",
     description="Returns a ministry history and president history for a given person.",
+    response_model=PersonHistoryResponse,
 )
 async def person_history(
     person_id: str = Path(..., description="ID of the person"),
@@ -26,6 +28,7 @@ async def person_history(
     "/person-profile/{person_id}",
     summary="Get person profile.",
     description="Returns a person profile for a given person.",
+    response_model=PersonResponse,
 )
 async def person_profile(
     person_id: str = Path(..., description="ID of the person"),
