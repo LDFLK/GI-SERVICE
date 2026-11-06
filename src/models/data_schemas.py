@@ -96,14 +96,6 @@ class DatasetRootItem(BaseModel):
     )
 
 
-class DatasetRootNotFound(BaseModel):
-    """Returned instead of DatasetRootItem when no root entity is found."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    detail: str = Field(..., examples=["No root entity found"])
-
-
 class TabularData(BaseModel):
     """Data structure for type='tabular'."""
 

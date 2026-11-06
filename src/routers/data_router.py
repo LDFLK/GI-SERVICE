@@ -7,7 +7,6 @@ from src.models import (
     DatasetYearsResponse,
     DataAttributesResponse,
     DatasetRootItem,
-    DatasetRootNotFound,
     DatasetCategoriesResponse,
 )
 from src.services import DataService, OpenGINService
@@ -64,7 +63,7 @@ async def get_data_attributes(
     "/datasets/{datasetId}/root",
     summary="Get the root of the given dataset.",
     description="Returns the root of the given dataset.",
-    response_model=DatasetRootItem | DatasetRootNotFound,
+    response_model=DatasetRootItem,
 )
 async def get_dataset_root(
     datasetId: str = Path(..., description="The ID of the dataset"),

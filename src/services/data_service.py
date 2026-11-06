@@ -16,7 +16,6 @@ from src.models import (
     DatasetYearsResponse,
     DataAttributesResponse,
     DatasetRootItem,
-    DatasetRootNotFound,
     DatasetCategoriesResponse,
     DatasetInfo,
 )
@@ -437,10 +436,6 @@ class DataService:
 
             # Find the root department, state minister or cabinet minister
             root_entity = await self.find_root_department_or_minister(category_id)
-
-            if not root_entity:
-                logger.error(f"No root entity found for dataset {dataset_id}")
-                return DatasetRootNotFound(detail="No root entity found")
 
             root_entity_name = Util.decode_protobuf_attribute_name(root_entity.name)
 
