@@ -125,7 +125,7 @@ class DataAttributesResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["tabular"] = Field(
-        default=KindMinorEnum.TABULAR.value,
+        ...,
         description="Dataset type",
         examples=[KindMinorEnum.TABULAR.value],
     )
